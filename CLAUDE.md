@@ -49,6 +49,14 @@ Explain as you go. Ask before big changes.
 - GOTCHA: env vars are read ONCE when the server starts. A server that
   was started before you saved the key holds a blank key forever.
   Restart the dev server after editing `.env.local`.
+- GOTCHA: `.env.local` must sit INSIDE `wael-arabic-agent/`, next to
+  `package.json`. One folder up (`Desktop/Agentic/`) it is invisible to
+  Next.js and every request fails. This actually happened once.
+  Symptom: curl returns `{"error":"Something went wrong talking to Claude."}`
+  Real cause is only in the SERVER LOGS: `Could not resolve authentication
+  method`. The route hides the true error behind that generic message, so
+  always read the logs before guessing.
+  Check it is in the right place: `ls -la wael-arabic-agent/.env.local`
 - GOTCHA: dotfiles are hidden on macOS. Open with `open -e .env.local`,
   or press `Cmd`+`Shift`+`.` in Finder.
 - GOTCHA: TextEdit does not write to the file until you press `Cmd`+`S`.
@@ -109,3 +117,12 @@ Explain as you go. Ask before big changes.
   reads your files; Vercel only reads GitHub.
 - End every chat: tick the Progress box, add gotchas here, commit.
   Chats are disposable, files are permanent.
+
+## Saving tokens
+Long chats get expensive because every new message re-sends the whole
+conversation. Rules for Claude:
+- Fewer, bigger edits. Don't rewrite the same file three times.
+- Don't re-read a file just to verify an edit that already succeeded.
+- Keep explanations short unless Wael asks for more.
+- Write decisions into this file ONCE, not into every reply.
+And for Wael: start a fresh chat at the start of each week's task.
