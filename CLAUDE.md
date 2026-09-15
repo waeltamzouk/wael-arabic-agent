@@ -3,10 +3,16 @@
 # Arabic AI chat agent
 
 ## Goal
-Build Arabic AI chat agents for two sites, by Sep 28.
-1. waelwebdesign.com (Arabic) — sales agent, answers service
-   questions, captures name + phone
-2. English template hub — recommends from 7 templates
+Build ONE Arabic AI chat agent for waelwebdesign.com, by Sep 28.
+The MVP is four things, nothing more:
+1. Answers service questions in Arabic
+2. Asks 4-5 qualifying questions
+3. Captures name + phone
+4. Emails the lead to Wael
+
+DROPPED Sep 14: the English template hub. Two weeks left, and
+getting leads delivered matters more than a second site. Revisit
+in 2027 if it still seems worth it.
 
 Selling this to Gulf clients as a $400-800/month retainer.
 Edge is Arabic quality: dialect, register, RTL.
@@ -23,8 +29,8 @@ Explain as you go. Ask before big changes.
 ## Progress
 - [x] Week 1: git, GitHub, Vercel, blank app deployed
 - [x] Week 2: API route, Arabic answers in terminal
-- [ ] Week 3: chat UI + lead capture, live on Arabic site
-- [ ] Week 4: English site + write-up
+- [ ] Week 3: chat widget (embeds into the Framer site) + name/phone capture
+- [ ] Week 4: qualifying questions + lead delivered to email
 
 ## Repo notes
 - Remote: `git@github.com:waeltamzouk/wael-arabic-agent.git` (SSH)
@@ -73,6 +79,29 @@ Explain as you go. Ask before big changes.
   they must be changed by hand.
 - `page.tsx` still has English boilerplate copy and the stock Vercel
   buttons. Replace before showing anyone.
+
+## Business decisions (Sep 14)
+- The agent QUOTES REAL PRICES. It used to refuse and ask for contact
+  details instead. Real prices filter out people with no budget before
+  they reach you.
+  - Landing Page: $800
+  - Business Website: $1,400
+  - Advanced Website: from $2,000
+- Prices are in USD, taken from the strategy doc. Switching to SAR or
+  AED later is a one-line edit in `lib/system-prompt.ts`.
+- "Never invent a price" still holds. It means don't make one up —
+  quoting these three is fine.
+- Qualifying questions, 4-5 of them, asked before contact details:
+  1. What kind of site
+  2. What the business does
+  3. Rough budget
+  4. Launch timeline
+  5. Existing content or branding
+- Then ask for name + phone ONLY. Every extra field kills conversion.
+- Lead arrives by email to Wael, formatted:
+  `Name / Business / Project / Budget / Timeline / Needs / Quality`
+- What you sell clients: setup $500-1,500, then $400-800/month.
+  Always charge setup.
 
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.
