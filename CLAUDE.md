@@ -29,7 +29,7 @@ Explain as you go. Ask before big changes.
 ## Progress
 - [x] Week 1: git, GitHub, Vercel, blank app deployed
 - [x] Week 2: API route, Arabic answers in terminal
-- [ ] Week 3: chat widget (embeds into the Framer site) + name/phone capture
+- [x] Week 3: chat widget (embeds into the Framer site) + name/phone capture
 - [ ] Week 4: qualifying questions + lead delivered to email
 
 ## Repo notes
@@ -85,8 +85,28 @@ Explain as you go. Ask before big changes.
 - GOTCHA: Tailwind has logical vs physical utilities. `items-start`
   flips automatically under RTL. `text-left` / `text-right` do NOT —
   they must be changed by hand.
-- `page.tsx` still has English boilerplate copy and the stock Vercel
-  buttons. Replace before showing anyone.
+## Chat widget notes (Week 3)
+- `app/components/ChatWidget.tsx` is the whole UI. It is used twice:
+  `app/page.tsx` (marketing homepage) and `app/embed/page.tsx` (bare
+  route for the Framer iframe). One component, two pages — edit it once.
+- `/embed` is set `robots: { index: false, follow: false }` so Google
+  never lists the bare widget as a page.
+- Every request sends the FULL message history, not just the new line.
+  That is how Claude remembers the conversation — the API is stateless.
+  This is what makes the 5 qualifying questions work in sequence.
+- Verified end-to-end on Sep 15: asked `كم سعر صفحة هبوط؟`, got the
+  correct $800 price plus one qualifying question.
+- GOTCHA: the bubbles render PLAIN TEXT (`whitespace-pre-wrap`), there
+  is no markdown parser. When Claude writes `**800 دولار**` the visitor
+  literally sees the asterisks. Fix belongs in `lib/system-prompt.ts`:
+  tell it not to use markdown, same way it is already told no emoji.
+  NOT FIXED YET.
+- GOTCHA: double greeting. The widget shows a hardcoded `WELCOME`
+  bubble, then Claude opens with `مرحباً بك!` too. The prompt rule
+  "greet once only" cannot help — `WELCOME` lives in the browser and is
+  never sent to the API, so Claude cannot see it and thinks it is
+  speaking first. Fix is either send `WELCOME` as the first assistant
+  message, or tell Claude never to greet. NOT FIXED YET.
 
 ## Business decisions (Sep 14)
 - The agent QUOTES REAL PRICES. It used to refuse and ask for contact
