@@ -433,6 +433,19 @@ Explain as you go. Ask before big changes.
   template page; they get the English demo and the English Polar
   link. This is enforced in the language directive in `route.ts`, not
   just in the prompt.
+- GOTCHA: putting the link policy in the main prompt was NOT enough.
+  It held locally but production still handed out the Polar link
+  unprompted on the identical question — model inconsistency, not a
+  bad deploy. Fix was to move the rule into the PER-REQUEST Arabic
+  directive in `route.ts`, phrased as an absolute ban ("no Polar link
+  exists in your reply unless he asked"), which is the
+  highest-recency position available. 4/4 trials give the site page
+  with no Polar; 3/3 explicit buy requests still get Polar.
+- LESSON, now three for three on this project: a rule that must never
+  slip does not belong in the middle of a long prompt. Either make it
+  deterministic in `route.ts` (stripMarkdown, detectLanguage) or put
+  it in the per-request directive. Position inside the static prompt
+  is not a strong enough lever.
 - GOTCHA: the agent called the Polar link "رابط التحميل" on the live
   site, which CLAUDE.md already forbids — nothing is downloaded, it
   is a Framer Remix link. The old rule only covered delivery AFTER
