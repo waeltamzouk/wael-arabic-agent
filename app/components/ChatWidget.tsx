@@ -144,7 +144,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
 
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-5"
+        className="flex flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
       >
         <Bubble role="assistant">{WELCOME}</Bubble>
 
@@ -202,6 +202,37 @@ export default function ChatWidget({ variant = "card" }: Props) {
   );
 }
 
+// One capture group, so String.split() returns [text, url, text, url, …] and
+// every ODD index is a URL. Trailing punctuation is excluded so a link at the
+// end of an Arabic sentence does not swallow the full stop.
+const URL_PATTERN = /(https?:\/\/[^\s<>()]+[^\s<>().,;:!?؟،])/g;
+
+function linkify(text: string) {
+  return text.split(URL_PATTERN).map((part, i) => {
+    if (i % 2 === 0) return part;
+
+    return (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        // dir="ltr" is not cosmetic. Inside RTL Arabic, a bare URL gets
+        // reordered by the bidi algorithm and its trailing slash jumps to the
+        // FRONT — the visitor sees "/https://heddah.framer.website". The dir
+        // attribute isolates it so it reads correctly.
+        dir="ltr"
+        // Polar checkout links are ~70 unbroken characters. Without break-all
+        // they overflow the bubble and force the whole panel to scroll
+        // sideways. inline-block keeps the wrapped lines together.
+        className="inline-block break-all underline underline-offset-2 [unicode-bidi:isolate]"
+      >
+        {part}
+      </a>
+    );
+  });
+}
+
 function Bubble({
   role,
   children,
@@ -215,13 +246,13 @@ function Bubble({
     <div
       dir="auto"
       className={[
-        "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6",
+        "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-6",
         isUser
           ? "self-end bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
           : "self-start bg-zinc-100 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100",
       ].join(" ")}
     >
-      {children}
+      {typeof children === "string" ? linkify(children) : children}
     </div>
   );
 }

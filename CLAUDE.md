@@ -156,6 +156,31 @@ Explain as you go. Ask before big changes.
   Take a fresh `preview_snapshot` instead: an EMPTY textarea plus a user
   bubble is the only real proof the submit went through.
 
+## Links in the bubbles (Sep 21)
+- The bubbles are plain text, so URLs used to be dead text. `linkify()`
+  in `ChatWidget.tsx` splits each message on a URL regex and renders
+  the matches as real anchors, `target="_blank"` +
+  `rel="noopener noreferrer"`. No markdown parser was added and
+  `stripMarkdown` still runs — this is separate from both.
+- The regex has ONE capture group on purpose: `String.split()` then
+  returns [text, url, text, url…] so every odd index is a URL. No
+  stateful `.test()` with a `/g` regex, which silently alternates
+  true/false because of `lastIndex`.
+- Trailing punctuation is excluded from the match, including the
+  Arabic comma `،` and question mark `؟`, so a link ending an Arabic
+  sentence does not swallow it.
+- GOTCHA: a bare URL inside RTL Arabic gets REORDERED by the bidi
+  algorithm — its trailing slash jumps to the front and the visitor
+  reads `/https://heddah.framer.website`. Wael spotted this on the
+  live site. Fix is `dir="ltr"` on the anchor, which isolates it.
+  This is not cosmetic and it is not a typo in the prompt.
+- GOTCHA: Polar checkout links are ~70 unbroken characters. Without
+  `break-all` on the anchor they overflow the bubble and give the
+  WHOLE panel a horizontal scrollbar. The message list also got
+  `overflow-x-hidden` so nothing can do that again.
+- Verified Sep 21 at 380x600: `horizontalOverflow: 0`, both links real
+  anchors, both fitting inside the bubble, slash at the END.
+
 ## Business decisions (Sep 14)
 - The agent QUOTES REAL PRICES. It used to refuse and ask for contact
   details instead. Real prices filter out people with no budget before
