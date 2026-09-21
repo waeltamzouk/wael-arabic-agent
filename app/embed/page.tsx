@@ -7,9 +7,11 @@ export const metadata: Metadata = {
 };
 
 export default function EmbedPage() {
+  // Fills the iframe exactly: no page scrollbar, no margin, no rounding. The
+  // rounded corners and shadow are the iframe's job, on the Framer side.
   return (
-    <main className="flex flex-1 flex-col">
-      <ChatWidget />
+    <main className="flex h-full flex-1 flex-col overflow-hidden">
+      <ChatWidget variant="panel" />
     </main>
   );
 }

@@ -2,6 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt";
 import { sendLead, type Lead } from "@/lib/send-lead";
+import {
+  checkSize,
+  clientIp,
+  corsHeaders,
+  isAllowedOrigin,
+  rateLimit,
+  type GuardFailure,
+} from "@/lib/guard";
 
 const anthropic = new Anthropic();
 
@@ -81,26 +89,65 @@ function isValidMessages(value: unknown): value is ChatMessage[] {
   );
 }
 
+// Every response carries the CORS headers, including the failures. A browser
+// that cannot read the reply just shows the generic error instead of the real
+// reason, which makes debugging the embed much harder than it needs to be.
+function json(req: NextRequest, body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: corsHeaders(req) });
+}
+
+function refuse(req: NextRequest, failure: GuardFailure) {
+  console.warn("Blocked /api/chat request:", failure.error);
+  return json(req, { error: failure.error, notice: failure.notice }, failure.status);
+}
+
+// The browser's CORS preflight. Only fires when the widget is loaded straight
+// onto another origin; the iframe at /embed is same-origin and never sends one.
+export async function OPTIONS(req: NextRequest) {
+  if (!isAllowedOrigin(req)) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
+}
+
 export async function POST(req: NextRequest) {
+  // Cheapest check first, and the only one that runs before the body is read.
+  if (!isAllowedOrigin(req)) {
+    return refuse(req, {
+      status: 403,
+      error: `Origin not allowed: ${req.headers.get("origin") ?? "(none)"}.`,
+      notice: "غير مصرح.",
+    });
+  }
+
+  const limited = rateLimit(clientIp(req));
+  if (limited) return refuse(req, limited);
+
   let body: unknown;
 
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return json(req, { error: "Invalid JSON body." }, 400);
   }
 
   const messages = (body as { messages?: unknown })?.messages;
 
   if (!isValidMessages(messages)) {
-    return NextResponse.json(
+    return json(
+      req,
       {
         error:
           "Expected { messages: [{ role: 'user' | 'assistant', content: string }] }.",
       },
-      { status: 400 }
+      400
     );
   }
+
+  // Size caps last: they need a parsed, valid body, and they are what stop one
+  // oversized conversation costing a fortune.
+  const oversized = checkSize(messages);
+  if (oversized) return refuse(req, oversized);
 
   try {
     const first = await anthropic.messages.create({
@@ -152,20 +199,14 @@ export async function POST(req: NextRequest) {
     );
 
     // The widget throws on an empty reply, so never return one.
-    return NextResponse.json({ reply: reply || LEAD_SENT_REPLY });
+    return json(req, { reply: reply || LEAD_SENT_REPLY });
   } catch (error) {
     console.error("Anthropic API error:", error);
 
     if (error instanceof Anthropic.APIError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status ?? 500 }
-      );
+      return json(req, { error: error.message }, error.status ?? 500);
     }
 
-    return NextResponse.json(
-      { error: "Something went wrong talking to Claude." },
-      { status: 500 }
-    );
+    return json(req, { error: "Something went wrong talking to Claude." }, 500);
   }
 }

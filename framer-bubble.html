@@ -1,0 +1,176 @@
+<!--
+  الفقاعة العائمة — paste this into Framer.
+
+  WHERE: Framer → Insert → Utility → Embed → HTML.
+  Place it on the page (position does not matter — the CSS below pins it to
+  the bottom-left corner of the browser window, not to the spot you drop it).
+  Put it on every page you want the bubble on, or once inside a component
+  that appears site-wide.
+
+  BEFORE IT WORKS: replace EMBED_ORIGIN on the next line with your Vercel URL.
+  Find it at vercel.com → the project → Domains → the .vercel.app one.
+  No trailing slash. It must start with https://
+
+  The launcher button lives HERE, on the Framer side. The chat panel lives in
+  the iframe, on Vercel. That split is deliberate: to put the button inside
+  the iframe, the iframe would have to cover the whole screen, and it would
+  swallow every click on the rest of your page.
+-->
+
+<script>
+  var EMBED_ORIGIN = "https://YOUR-PROJECT.vercel.app";
+</script>
+
+<style>
+  /* Bottom-LEFT: the conventional side on an RTL Arabic site.
+     To move it to the right, swap `left` for `right` in BOTH rules below. */
+  #wael-chat-launcher {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 2147483000;
+
+    width: 60px;
+    height: 60px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0;
+
+    background: #18181b;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #wael-chat-launcher:hover {
+    transform: scale(1.06);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  #wael-chat-launcher:focus-visible {
+    outline: 3px solid #18181b;
+    outline-offset: 3px;
+  }
+
+  #wael-chat-launcher svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  #wael-chat-panel {
+    position: fixed;
+    bottom: 96px;
+    left: 24px;
+    z-index: 2147483000;
+
+    width: 380px;
+    height: min(600px, calc(100vh - 140px));
+
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+
+    /* Hidden state. `visibility` (not `display`) so the panel can animate,
+       and so the iframe is not torn down and reloaded on every close. */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px) scale(0.98);
+    transform-origin: bottom left;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  }
+
+  #wael-chat-panel.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Phones: fill the screen. A 380px panel on a 390px screen looks broken. */
+  @media (max-width: 480px) {
+    #wael-chat-panel {
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+    }
+    #wael-chat-launcher {
+      bottom: 16px;
+      left: 16px;
+    }
+  }
+</style>
+
+<button
+  id="wael-chat-launcher"
+  type="button"
+  aria-label="افتح المحادثة مع مساعد وائل"
+  aria-expanded="false"
+>
+  <!-- Two icons in one button: chat when closed, X when open. -->
+  <svg id="wael-chat-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.2 9.2 0 0 1-2.9-.4L3 21l1.6-4.6A8.3 8.3 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 9 8.4Z" />
+  </svg>
+  <svg id="wael-chat-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display: none" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+</button>
+
+<iframe
+  id="wael-chat-panel"
+  title="مساعد وائل"
+  loading="lazy"
+></iframe>
+
+<script>
+  (function () {
+    var launcher = document.getElementById("wael-chat-launcher");
+    var panel = document.getElementById("wael-chat-panel");
+    var iconOpen = document.getElementById("wael-chat-icon-open");
+    var iconClose = document.getElementById("wael-chat-icon-close");
+    var open = false;
+    var loaded = false;
+
+    function setOpen(next) {
+      open = next;
+      panel.classList.toggle("is-open", open);
+      launcher.setAttribute("aria-expanded", String(open));
+      launcher.setAttribute(
+        "aria-label",
+        open ? "أغلق المحادثة" : "افتح المحادثة مع مساعد وائل"
+      );
+      iconOpen.style.display = open ? "none" : "";
+      iconClose.style.display = open ? "" : "none";
+
+      // Load the iframe only on the FIRST open. A visitor who never clicks
+      // never touches Vercel, so the page stays fast and the API stays quiet.
+      if (open && !loaded) {
+        panel.src = EMBED_ORIGIN + "/embed";
+        loaded = true;
+      }
+    }
+
+    launcher.addEventListener("click", function () {
+      setOpen(!open);
+    });
+
+    // The X inside the panel. The panel cannot hide itself — it is the parent
+    // page that shows and hides it — so it asks by postMessage.
+    window.addEventListener("message", function (event) {
+      // Only ever act on a message from our own iframe. Without this check,
+      // any embedded third party could close the panel, or worse.
+      if (event.origin !== EMBED_ORIGIN) return;
+      if (event.data && event.data.type === "wael-chat:close") setOpen(false);
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && open) setOpen(false);
+    });
+  })();
+</script>

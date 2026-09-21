@@ -46,6 +46,10 @@ Explain as you go. Ask before big changes.
       guardrails, `type: project | template` on the lead
 - [ ] Phase 3: floating chat bubble on the Framer site + CORS,
       rate limiting, message caps
+      (Sep 21: the CODE side is done, tested and committed — guard,
+      frame lock, panel widget, `framer-bubble.html`. The box stays
+      unticked until the snippet is actually pasted into Framer with
+      the real Vercel URL and the bubble is live on waelwebdesign.com.)
 - [ ] Phase 4: lead capture from the live widget
 - [ ] Phase 5: HubSpot
 
@@ -238,6 +242,106 @@ Explain as you go. Ask before big changes.
   `npx tsc --noEmit` catches it; `next dev` does not.
 - Terminal test scripts live in the scratchpad, not the repo. Any test
   conversation that gives a name and phone sends a REAL email.
+
+## Phase 3 — securing /api/chat (Sep 21)
+- All of it lives in `lib/guard.ts`, called at the TOP of
+  `app/api/chat/route.ts`, before any Anthropic call. An abusive
+  request costs nothing.
+- THE IMPORTANT DISTINCTION: CORS is a browser rule, not a server
+  lock. Before this, the route sent no CORS headers, so a browser on
+  another site could not READ the reply — but curl could, all day.
+  The Origin allowlist is the gate; the CORS headers only exist so a
+  non-iframe embed is possible later.
+- Three layers, each stopping a different thing:
+  1. Origin allowlist — another SITE bolting the agent onto its page
+  2. Rate limit, per IP — one visitor burning the API budget
+  3. Size caps — one huge request costing a fortune
+- Limits, all one-line edits in `lib/guard.ts`:
+  10 requests/minute and 50/hour per IP;
+  40 messages, 2,000 chars per message, 20,000 chars per conversation.
+  A real qualifying conversation is 15-20 messages, so these are roomy.
+- WHY the size caps matter here specifically: the widget re-sends the
+  WHOLE history every time, so cost grows with the SQUARE of the
+  conversation. One request carrying 5,000 fake messages would be a
+  single enormous bill.
+- Same-origin is always allowed, by comparing `Origin` to the `Host`
+  header. That is how the iframe talks to the route, and it covers
+  every Vercel preview deployment without listing any of them.
+- `ALLOWED_ORIGINS` (comma separated) in Vercel adds a domain with no
+  deploy. `waelwebdesign.com` and `www.` are already in the code.
+- Failures return BOTH `error` (English, for the logs) and `notice`
+  (Arabic, for the visitor). The widget shows `notice` only — raw
+  English API errors must never reach a visitor.
+- HONEST LIMITATION 1: `Origin` is one line to fake in curl. This
+  stops other sites, not a determined attacker. The rate limit is
+  what caps the bill.
+- HONEST LIMITATION 2: the rate limiter is an in-memory Map, so it
+  lives in ONE serverless instance. Vercel runs several, each with
+  its own copy, and it empties on a cold start — the true ceiling is
+  roughly the limit times the number of live instances. Chosen
+  deliberately over Upstash Redis: zero deps, zero cost, good enough
+  to stop one person hammering. Upgrade path is Upstash with the same
+  function signature; nothing else changes.
+- The terminal test in "API route notes" still works UNCHANGED on
+  localhost: a request with no `Origin` at all is allowed in dev and
+  refused in production. Testing the LIVE route needs
+  `-H "Origin: https://waelwebdesign.com"` added.
+- GOTCHA: testing the guard eats the real rate-limit budget for your
+  own IP. To test the limiter without spending a single API call,
+  send deliberately BAD JSON — the limiter runs before the body is
+  parsed, so each request costs nothing and still consumes a slot.
+- GOTCHA: `next dev` DOES restart itself when `next.config.ts`
+  changes, so header edits do not need a manual restart. This is the
+  opposite of `.env.local`, which does.
+- Verified Sep 21, all on localhost: bad origin 403, preflight 204
+  with the echoed origin, bad-origin preflight 403, 60 messages 413,
+  2,500-char message 413, real Arabic question 200 with the correct
+  800 dollar answer, and the 11th request in a minute 429.
+
+## Phase 3 — the floating bubble (Sep 21)
+- Iframe approach, and the split is the whole design:
+  the BUTTON lives on the Framer side, the PANEL lives on Vercel.
+  To put the button inside the iframe, the iframe would have to cover
+  the whole screen, and it would swallow every click on the page.
+- Framer side is `framer-bubble.html` in the repo root. It is NOT
+  served or routed — it is a snippet to paste into
+  Framer → Insert → Utility → Embed → HTML.
+  Replace `EMBED_ORIGIN` at the top with the real Vercel URL first.
+- Bottom-LEFT, the conventional side on an RTL Arabic site. Moving it
+  is swapping `left` for `right` in two CSS rules.
+- The iframe `src` is set on FIRST OPEN only. A visitor who never
+  clicks never touches Vercel, so the page stays fast and the API
+  stays quiet.
+- `ChatWidget` now takes `variant`: `card` (homepage, bordered box)
+  or `panel` (iframe, edge to edge, with an X). One component, still
+  edited once.
+- The X cannot hide itself — the PARENT shows and hides the panel —
+  so it sends `postMessage({ type: "wael-chat:close" })`. The
+  listener in the snippet checks `event.origin` before acting. Never
+  drop that check: without it any embedded third party could drive it.
+- `/embed` is locked with `frame-ancestors` in `next.config.ts`.
+  Before this, ANY site could iframe the widget and run up the bill.
+  `*.framer.website` and `*.framer.app` are allowed so the bubble can
+  be tested in Framer preview before publishing.
+  X-Frame-Options is deliberately NOT set — it only understands DENY
+  and SAMEORIGIN, so it would block the Framer site too.
+- The endpoint is now `NEXT_PUBLIC_CHAT_API_URL || "/api/chat"`.
+  The iframe is same-origin so the relative path is all it needs; the
+  env var is for the day the widget goes onto waelwebdesign.com with
+  no iframe, and it must then be the full https:// Vercel URL.
+- GOTCHA: `h-full` COLLAPSES the panel to content height inside the
+  iframe — it filled only the top 260px of 600px, leaving the
+  composer floating mid-screen. Cause: `body` has `min-h-full`, only
+  a min-height, so a percentage height has nothing definite to
+  resolve against and falls back to auto. Fix is `min-h-0 flex-1` for
+  the panel variant. The card keeps `h-full` because its parent on
+  the homepage is sized. Caught only by measuring in the browser;
+  it looks completely fine in the code.
+- Verified Sep 21 at 380x600, the real panel size: fills the frame,
+  composer pinned to the bottom, asked `كم سعر قالب نَبض؟` and got
+  the correct 99 dollar answer with the nabdh.framer.website link, no
+  markdown, no greeting. X fires the close message. Homepage card
+  unchanged.
 
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.

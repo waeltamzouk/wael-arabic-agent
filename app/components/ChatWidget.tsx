@@ -12,7 +12,24 @@ const WELCOME =
 
 const GENERIC_ERROR = "تعذر الاتصال بالمساعد. حاول مرة أخرى.";
 
-export default function ChatWidget() {
+// Same-origin by default, which is all the iframe at /embed needs. The env var
+// exists for the day the widget is dropped straight onto waelwebdesign.com
+// with no iframe — then it must be the full https://… Vercel URL, and the
+// CORS allowlist in lib/guard.ts is what lets it through.
+const CHAT_ENDPOINT = process.env.NEXT_PUBLIC_CHAT_API_URL || "/api/chat";
+
+// Tells the Framer launcher to close the panel. The X lives inside the iframe,
+// but the panel is shown and hidden by the parent page, so it has to ask.
+export const CLOSE_MESSAGE = "wael-chat:close";
+
+type Props = {
+  // "card"  — the bordered box on the marketing homepage.
+  // "panel" — edge to edge inside the iframe, with a close button.
+  variant?: "card" | "panel";
+};
+
+export default function ChatWidget({ variant = "card" }: Props) {
+  const isPanel = variant === "panel";
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,21 +46,24 @@ export default function ChatWidget() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(CHAT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history }),
       });
 
-      const data: { reply?: string; error?: string } = await res.json();
+      const data: { reply?: string; error?: string; notice?: string } =
+        await res.json();
 
       if (!res.ok || !data.reply) {
-        throw new Error(data.error ?? GENERIC_ERROR);
+        // `notice` is written for the visitor and is safe to show. `error` is
+        // for the logs and can be raw English from the API, so it never is.
+        throw new Error(data.notice ?? GENERIC_ERROR);
       }
 
       setMessages([...history, { role: "assistant", content: data.reply }]);
-    } catch {
-      setError(GENERIC_ERROR);
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : GENERIC_ERROR);
     } finally {
       setLoading(false);
     }
@@ -71,14 +91,55 @@ export default function ChatWidget() {
     !loading && messages.length > 0 && messages[messages.length - 1].role === "user";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <header className="shrink-0 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-          مساعد وائل
-        </h2>
-        <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-          تصميم مواقع على فريمر
-        </p>
+    <div
+      className={[
+        "flex flex-col overflow-hidden bg-white dark:bg-zinc-950",
+        // GOTCHA: `h-full` collapses to content height here. `body` only has
+        // min-height, so a percentage height has nothing definite to resolve
+        // against. `flex-1` fills the iframe properly; `min-h-0` lets the
+        // message list scroll instead of pushing the composer off-screen.
+        // The card keeps `h-full` — its parent on the homepage is sized.
+        // Rounding is omitted in the panel: it belongs to the iframe itself,
+        // on the Framer side, and doubling it shows a corner seam.
+        isPanel
+          ? "min-h-0 flex-1"
+          : "h-full rounded-2xl border border-zinc-200 dark:border-zinc-800",
+      ].join(" ")}
+    >
+      <header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+            مساعد وائل
+          </h2>
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+            تصميم مواقع على فريمر
+          </p>
+        </div>
+
+        {isPanel && (
+          <button
+            type="button"
+            onClick={() =>
+              // "*" is fine here: the message carries no data, and the parent
+              // checks the iframe's origin before acting on it.
+              window.parent?.postMessage({ type: CLOSE_MESSAGE }, "*")
+            }
+            aria-label="إغلاق المحادثة"
+            className="-me-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
+        )}
       </header>
 
       <div
