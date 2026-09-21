@@ -453,6 +453,55 @@ Explain as you go. Ask before big changes.
   Now named explicitly: call it رابط الحصول على القالب or رابط
   الشراء, never a download, at any stage.
 
+## Same-tab links (Sep 21)
+- DECISION (Wael): links inside the chat open in the SAME tab, not a
+  new one.
+- THE CATCH, and why this is three changes and not one: same-tab is
+  what DESTROYS the conversation. The page navigates away, React
+  state dies, and Back gives an empty chat. New tab is why the
+  conversation survived before. So same-tab only works with
+  persistence bolted on.
+- `target="_top"`, NOT `target="_self"`. The widget is inside an
+  iframe, so `_self` loads the destination INSIDE the 380px panel —
+  and Polar and Framer both refuse to be framed, so it just breaks.
+  `_top` navigates the whole tab. It is allowed cross-origin because
+  it happens on a real user click (top navigation by user activation).
+- The conversation is saved to `sessionStorage` by `ChatWidget`.
+  sessionStorage, not localStorage: it survives navigation and Back,
+  and clears when the tab closes, so a shared computer never shows
+  the previous person's chat.
+- The launcher remembers it was OPEN in `sessionStorage` on
+  waelwebdesign.com and reopens on return. Without it the visitor
+  comes back to a closed bubble and assumes the chat is gone. That
+  key is FIRST-party, so it is reliable even where third-party
+  storage is blocked.
+- GOTCHA: restore in a `useEffect`, never in a `useState` initializer.
+  The server renders an empty list, so reading storage during the
+  first render is a hydration mismatch.
+- GOTCHA: the save effect must skip an EMPTY list. On mount it runs
+  before the restore effect's state has applied, so saving `[]` there
+  erases the conversation it is trying to bring back. Cost an hour
+  the first time this pattern is written.
+- HONEST LIMITATION: the chat's own storage is third-party (the
+  iframe is on vercel.app inside waelwebdesign.com). Safari's
+  cross-site tracking prevention can block it, and then the
+  conversation will NOT survive the round trip — the bubble still
+  reopens, but empty. Every access is in a try/catch so it degrades
+  instead of breaking. If this matters later, the fix is a custom
+  domain like chat.waelwebdesign.com pointed at Vercel, which makes
+  the iframe first-party.
+- `next.config.ts` now allows `http://localhost:*` in
+  `frame-ancestors` in DEV ONLY, so the Framer snippet can be tested
+  against a local page before publishing. Never added in production.
+- Verified Sep 21 end to end on a stand-in host page: opened the
+  bubble, asked `ابغى قالب حدة رقمية`, clicked the site link, the
+  WHOLE TAB went to waelwebdesign.com/template/heddah, pressed Back,
+  and the panel reopened by itself with the full conversation intact.
+- GOTCHA, testing only: the Next.js dev indicator badge sits exactly
+  on top of the إرسال button inside a 380px panel, so clicking send
+  opens the dev menu instead. Dev only — it does not exist in
+  production. Click the right-hand edge of the button.
+
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.
 - A change is not live until it is committed AND pushed. Localhost

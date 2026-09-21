@@ -142,8 +142,25 @@
     var open = false;
     var loaded = false;
 
+    // Links inside the chat open in the SAME tab, so the visitor leaves this
+    // page and comes back. Remember that the panel was open, or they return
+    // to a closed bubble and think the conversation is gone. The chat itself
+    // remembers its own messages, on the Vercel side.
+    // sessionStorage here is FIRST-party (your own domain), so it is reliable
+    // even in browsers that block third-party storage.
+    var OPEN_KEY = "wael-chat:open";
+
+    function remember(isOpen) {
+      try {
+        sessionStorage.setItem(OPEN_KEY, isOpen ? "1" : "0");
+      } catch (e) {
+        /* private mode, or storage disabled. Not worth breaking over. */
+      }
+    }
+
     function setOpen(next) {
       open = next;
+      remember(open);
       panel.classList.toggle("is-open", open);
       launcher.setAttribute("aria-expanded", String(open));
       launcher.setAttribute(
@@ -177,5 +194,12 @@
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && open) setOpen(false);
     });
+
+    // Coming back from a link the visitor followed: reopen where they were.
+    try {
+      if (sessionStorage.getItem(OPEN_KEY) === "1") setOpen(true);
+    } catch (e) {
+      /* nothing stored, nothing to restore. */
+    }
   })();
 </script>

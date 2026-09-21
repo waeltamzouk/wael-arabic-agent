@@ -15,6 +15,11 @@ const FRAME_ANCESTORS = [
   "https://*.framer.app",
   // Anything else goes in the FRAME_ANCESTORS env var in Vercel, space separated.
   ...(process.env.FRAME_ANCESTORS ?? "").split(/[\s,]+/).filter(Boolean),
+  // Dev only: lets you drop the Framer snippet into a local page and try the
+  // whole bubble before publishing. Never added in production.
+  ...(process.env.NODE_ENV === "production"
+    ? []
+    : ["http://localhost:*", "http://127.0.0.1:*"]),
 ];
 
 const nextConfig: NextConfig = {

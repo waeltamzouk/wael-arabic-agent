@@ -28,6 +28,36 @@ type Props = {
   variant?: "card" | "panel";
 };
 
+// Links now open in the SAME tab, which destroys this component and its state.
+// Without persistence the visitor comes back to an empty chat, so the whole
+// point of same-tab links is lost. sessionStorage is the right scope: it
+// survives navigation and the back button, and clears when the tab closes, so
+// a shared computer never shows the last person's conversation.
+const STORAGE_KEY = "wael-chat:messages";
+
+function isMessage(value: unknown): value is Message {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ((value as Message).role === "user" ||
+      (value as Message).role === "assistant") &&
+    typeof (value as Message).content === "string"
+  );
+}
+
+function loadMessages(): Message[] {
+  // Every access is wrapped: storage throws outright in some privacy modes,
+  // and a third-party iframe can be denied it entirely.
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isMessage) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ChatWidget({ variant = "card" }: Props) {
   const isPanel = variant === "panel";
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,6 +70,27 @@ export default function ChatWidget({ variant = "card" }: Props) {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading, error]);
+
+  // Restore after mount, not in a useState initializer: the server renders an
+  // empty list, so reading storage during the first render is a hydration
+  // mismatch.
+  useEffect(() => {
+    const restored = loadMessages();
+    if (restored.length) setMessages(restored);
+  }, []);
+
+  useEffect(() => {
+    // Never write an empty list. On mount this effect runs BEFORE the restore
+    // above has applied its state, so saving [] here would erase the very
+    // conversation we are trying to bring back.
+    if (messages.length === 0) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      // Storage blocked. The chat still works, it just will not survive a
+      // same-tab navigation.
+    }
+  }, [messages]);
 
   async function sendHistory(history: Message[]) {
     setError(null);
@@ -215,8 +266,12 @@ function linkify(text: string) {
       <a
         key={i}
         href={part}
-        target="_blank"
-        rel="noopener noreferrer"
+        // "_top" and NOT "_self". The widget runs inside an iframe, so
+        // "_self" would load the destination INSIDE the 380px panel — and
+        // Polar and Framer both refuse to be framed, so it would just break.
+        // "_top" navigates the whole tab, which is what "same tab" means.
+        // Allowed cross-origin because it happens on a real user click.
+        target="_top"
         // dir="ltr" is not cosmetic. Inside RTL Arabic, a bare URL gets
         // reordered by the bidi algorithm and its trailing slash jumps to the
         // FRONT — the visitor sees "/https://heddah.framer.website". The dir
