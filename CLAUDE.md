@@ -44,12 +44,15 @@ Explain as you go. Ask before big changes.
       ticked. Verified end-to-end again Sep 21.)
 - [x] Phase 2 (Sep 21): templates knowledge, Arabic behaviour rules,
       guardrails, `type: project | template` on the lead
-- [ ] Phase 3: floating chat bubble on the Framer site + CORS,
-      rate limiting, message caps
-      (Sep 21: the CODE side is done, tested and committed — guard,
-      frame lock, panel widget, `framer-bubble.html`. The box stays
-      unticked until the snippet is actually pasted into Framer with
-      the real Vercel URL and the bubble is live on waelwebdesign.com.)
+- [x] Phase 3 (Sep 21): floating chat bubble on the Framer site +
+      CORS, rate limiting, message caps.
+      Confirmed live: `waelwebdesign.com` serves the launcher on the
+      homepage AND on template pages, pointing at
+      `https://wael-arabic-agent.vercel.app`, with the auto-reopen
+      key present. Beyond the original scope, and all live: clickable
+      links, same-tab navigation with the conversation preserved,
+      template links defaulting to waelwebdesign.com, and the reply
+      language pinned in code.
 - [ ] Phase 4: lead capture from the live widget
 - [ ] Phase 5: HubSpot
 
