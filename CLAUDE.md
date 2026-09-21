@@ -305,6 +305,15 @@ Explain as you go. Ask before big changes.
   with the echoed origin, bad-origin preflight 403, 60 messages 413,
   2,500-char message 413, real Arabic question 200 with the correct
   800 dollar answer, and the 11th request in a minute 429.
+- Re-verified Sep 21 on PRODUCTION after pushing: bad origin 403,
+  NO origin at all 403 (the plain curl that used to work is now
+  refused — that is the point), preflight from waelwebdesign.com 204
+  with the echoed origin, 2,500-char message 413, and a real question
+  through the live panel answered 1,400 dollars correctly.
+- GOTCHA: the first live request after a deploy takes ~25 seconds —
+  Vercel cold start plus the Anthropic call. The widget just sits on
+  `يكتب…` the whole time. It is not broken and it is not the guard.
+  Check `read_network_requests` for the real status before debugging.
 
 ## Phase 3 — the floating bubble (Sep 21)
 - Iframe approach, and the split is the whole design:
