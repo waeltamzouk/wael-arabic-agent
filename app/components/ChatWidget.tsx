@@ -68,7 +68,26 @@ export default function ChatWidget({ variant = "card" }: Props) {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+
+    const toBottom = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+
+    toBottom();
+
+    // The Arabic webfont swaps in AFTER this runs and reflows every bubble
+    // taller, which on a restored conversation leaves the view hundreds of
+    // pixels short of the bottom — the same symptom as not scrolling at all.
+    // Re-pin once the font is actually in.
+    let cancelled = false;
+    document.fonts?.ready.then(() => {
+      if (!cancelled) toBottom();
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [messages, loading, error]);
 
   // Restore after mount, not in a useState initializer: the server renders an
@@ -144,17 +163,18 @@ export default function ChatWidget({ variant = "card" }: Props) {
   return (
     <div
       className={[
-        "flex flex-col overflow-hidden bg-white dark:bg-zinc-950",
-        // GOTCHA: `h-full` collapses to content height here. `body` only has
-        // min-height, so a percentage height has nothing definite to resolve
-        // against. `flex-1` fills the iframe properly; `min-h-0` lets the
-        // message list scroll instead of pushing the composer off-screen.
-        // The card keeps `h-full` — its parent on the homepage is sized.
+        // `min-h-0 flex-1` for BOTH variants, never `h-full`. A percentage
+        // height needs a parent with a DEFINITE height, and neither parent
+        // has one — `body` carries only `min-height`, and the homepage
+        // wrapper only `max-height`. `h-full` silently became "as tall as my
+        // content", which stopped the message list scrolling and pushed the
+        // composer off screen. `min-h-0` is the half that lets it shrink.
+        "flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950",
         // Rounding is omitted in the panel: it belongs to the iframe itself,
         // on the Framer side, and doubling it shows a corner seam.
         isPanel
-          ? "min-h-0 flex-1"
-          : "h-full rounded-2xl border border-zinc-200 dark:border-zinc-800",
+          ? ""
+          : "rounded-2xl border border-zinc-200 dark:border-zinc-800",
       ].join(" ")}
     >
       <header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
@@ -195,7 +215,13 @@ export default function ChatWidget({ variant = "card" }: Props) {
 
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
+        // GOTCHA: `min-h-0` is what makes this scroll at all. A flex item
+        // defaults to `min-height: auto`, which refuses to shrink below its
+        // content, so `flex-1` + `overflow-y-auto` GROWS the list past the
+        // iframe instead of scrolling it — and pushes the composer off
+        // screen. Invisible until a conversation is long enough to overflow,
+        // which is why a restored conversation exposed it first.
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
       >
         <Bubble role="assistant">{WELCOME}</Bubble>
 

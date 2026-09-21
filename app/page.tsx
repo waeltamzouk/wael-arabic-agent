@@ -14,7 +14,11 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="min-h-[32rem] flex-1">
+        {/* max-h bounds the card so the MESSAGE LIST scrolls inside it. With
+            only a min-height the card grew with the conversation (1246px on a
+            800px screen) and the page scrolled instead, which meant a long
+            chat opened at the first message. Same defect the embed had. */}
+        <div className="flex min-h-[32rem] max-h-[70vh] flex-1 flex-col">
           <ChatWidget />
         </div>
       </main>

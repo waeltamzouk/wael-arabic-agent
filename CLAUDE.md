@@ -517,6 +517,47 @@ Explain as you go. Ask before big changes.
   opens the dev menu instead. Dev only — it does not exist in
   production. Click the right-hand edge of the button.
 
+## The scroll bug (Sep 21) — read this before touching heights
+- SYMPTOM Wael reported: a restored conversation opened at the FIRST
+  message; you had to scroll down to find where you were.
+- It was NOT a scroll-position bug. The message list was not
+  scrollable AT ALL. `scrollHeight - clientHeight` measured 0 with 13
+  bubbles on screen, so `scrollTop = scrollHeight` was a silent no-op.
+  The composer was also pushed off the bottom, which nobody had
+  noticed because it only happens once a conversation is long enough.
+- ROOT CAUSE, two halves, both about heights being INDEFINITE:
+  1. `body` carries `min-h-full` from the shared root layout, so it
+     GROWS with content. It measured 1556px inside a 600px iframe.
+     Nothing below it ever had to scroll — the whole DOCUMENT did.
+  2. `h-full` on the widget is a PERCENTAGE height, and a percentage
+     needs a parent with a definite height. `min-height` alone is not
+     definite; neither is `max-height`. So `h-full` silently resolved
+     to "as tall as my content".
+- FIX, three parts:
+  1. `/embed` uses `fixed inset-0` so it is pinned to the iframe
+     viewport and cannot be stretched by body.
+  2. The widget shell uses `min-h-0 flex-1` for BOTH variants, never
+     `h-full`. Flex sizing is definite; percentages here are not.
+  3. The message list needs `min-h-0` too. A flex item defaults to
+     `min-height: auto`, which refuses to shrink below its content,
+     so `flex-1` + `overflow-y-auto` grows instead of scrolling.
+     `overflow-y-auto` without `min-h-0` is a no-op in a flex column.
+- The homepage had the SAME defect: the card grew to 1246px on an
+  800px screen and the page scrolled. Its wrapper is now
+  `flex min-h-[32rem] max-h-[70vh] flex-1 flex-col`.
+- Also re-pins to the bottom on `document.fonts.ready`. The Arabic
+  webfont swaps in after the scroll effect runs and reflows every
+  bubble taller, which leaves a long chat short of the bottom — the
+  same symptom, but intermittent and cache-dependent.
+- Verified Sep 21 by MEASURING, not by looking, in both variants:
+  list scrolls internally, lands at the bottom, last bubble fully on
+  screen, page does not scroll, composer visible.
+- LESSON: this bug was invisible for three sessions because every
+  test conversation was short enough to fit. Test the widget with a
+  LONG conversation. Seed one without spending API calls:
+  `sessionStorage.setItem('wael-chat:messages', JSON.stringify(msgs))`
+  then reload `/embed`.
+
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.
 - A change is not live until it is committed AND pushed. Localhost
