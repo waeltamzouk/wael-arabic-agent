@@ -497,6 +497,21 @@ Explain as you go. Ask before big changes.
   bubble, asked `ابغى قالب حدة رقمية`, clicked the site link, the
   WHOLE TAB went to waelwebdesign.com/template/heddah, pressed Back,
   and the panel reopened by itself with the full conversation intact.
+- DECISION (Wael, Sep 21): the panel should open BY ITSELF on the new
+  page. It already does, and only for someone who had it open — it is
+  the OPEN_KEY restore, not a popup. Rejected: auto-opening for every
+  visitor, and auto-opening on a timer. Neither is wanted; the chat
+  never opens uninvited.
+- Re-verified Sep 21 across two pages on ONE origin, which is the
+  real case (the first test had host and destination on different
+  origins, so the cross-page restore was never actually exercised):
+  page 1 loaded with the panel ALREADY open and the conversation
+  restored, navigating to page 2 kept it open, closing it kept it
+  closed across the next navigation, and reopening still had the
+  conversation. All four states correct.
+- GOTCHA, testing only: `find` for "افتح المحادثة" returns nothing
+  when the panel is open — the launcher's aria-label switches to
+  "أغلق المحادثة". Not a bug, and not the button failing to render.
 - GOTCHA, testing only: the Next.js dev indicator badge sits exactly
   on top of the إرسال button inside a 380px panel, so clicking send
   opens the dev menu instead. Dev only — it does not exist in
