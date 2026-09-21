@@ -10,16 +10,25 @@ The MVP is four things, nothing more:
 3. Captures name + phone
 4. Emails the lead to Wael
 
-DROPPED Sep 14: the English template hub. Two weeks left, and
-getting leads delivered matters more than a second site. Revisit
-in 2027 if it still seems worth it.
+DROPPED Sep 14: the English template hub as a SEPARATE SITE. That
+decision still stands — there is no second site.
+
+REVERSED Sep 21 (Phase 2), narrowly: the six templates are now
+first-class KNOWLEDGE inside this one agent, and a lead type of
+its own. That is not the hub; it is the existing agent knowing
+what Wael already sells.
 
 Selling this to Gulf clients as a $400-800/month retainer.
 Edge is Arabic quality: dialect, register, RTL.
 
 ## Stack
-Next.js on Vercel, Claude API, site content in the system prompt.
+Next.js on Vercel, Claude API, Resend for the lead email, site
+content in the system prompt.
 NO vector DB, NO RAG — ~20 pages fits in a prompt.
+
+Env vars, all in `.env.local` AND in Vercel project settings:
+`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `LEAD_TO_EMAIL`,
+`LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`).
 
 ## About me
 Strong: Framer, design, Arabic.
@@ -30,7 +39,15 @@ Explain as you go. Ask before big changes.
 - [x] Week 1: git, GitHub, Vercel, blank app deployed
 - [x] Week 2: API route, Arabic answers in terminal
 - [x] Week 3: chat widget (embeds into the Framer site) + name/phone capture
-- [ ] Week 4: qualifying questions + lead delivered to email
+- [x] Week 4: qualifying questions + lead delivered to email
+      (this was already built and working — the box was just never
+      ticked. Verified end-to-end again Sep 21.)
+- [x] Phase 2 (Sep 21): templates knowledge, Arabic behaviour rules,
+      guardrails, `type: project | template` on the lead
+- [ ] Phase 3: floating chat bubble on the Framer site + CORS,
+      rate limiting, message caps
+- [ ] Phase 4: lead capture from the live widget
+- [ ] Phase 5: HubSpot
 
 ## Repo notes
 - Remote: `git@github.com:waeltamzouk/wael-arabic-agent.git` (SSH)
@@ -98,15 +115,34 @@ Explain as you go. Ask before big changes.
   correct $800 price plus one qualifying question.
 - GOTCHA: the bubbles render PLAIN TEXT (`whitespace-pre-wrap`), there
   is no markdown parser. When Claude writes `**800 دولار**` the visitor
-  literally sees the asterisks. Fix belongs in `lib/system-prompt.ts`:
-  tell it not to use markdown, same way it is already told no emoji.
-  NOT FIXED YET.
+  literally sees the asterisks. FIXED Sep 16 in `lib/system-prompt.ts`:
+  added a no-markdown rule right next to the no-emoji rule, and told it
+  WHY (the UI shows text as-is, so asterisks appear as symbols).
 - GOTCHA: double greeting. The widget shows a hardcoded `WELCOME`
   bubble, then Claude opens with `مرحباً بك!` too. The prompt rule
   "greet once only" cannot help — `WELCOME` lives in the browser and is
   never sent to the API, so Claude cannot see it and thinks it is
-  speaking first. Fix is either send `WELCOME` as the first assistant
-  message, or tell Claude never to greet. NOT FIXED YET.
+  speaking first. FIXED Sep 16: replaced that rule with an absolute
+  "never greet, the site already greeted the visitor".
+- Both fixes verified live Sep 16. Asked `كم سعر صفحة هبوط؟`, got
+  `صفحة الهبوط سعرها 800 دولار.` — no asterisks, no greeting, correct
+  price, one qualifying question. Prompt edits hot-reload; no restart.
+- GOTCHA: testing the widget from Claude's preview tools. `preview_fill`
+  writes the DOM `.value` but does NOT fire React's `onChange`, so
+  `input` state stays empty, the send button stays disabled, and the
+  click silently does nothing. It still reports "Successfully filled"
+  and "Successfully clicked" — those only mean the DOM was touched.
+  What works, all in ONE `preview_eval`:
+  set value via the native setter
+  (`Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,
+  'value').set.call(ta, text)`), dispatch `new Event('input', {bubbles:
+  true})`, then `ta.closest('form').requestSubmit()`.
+  It must be one call — splitting it across two lets the page re-render
+  in between, which wipes React state and re-disables the button.
+  Do NOT judge success by reading `.value` right after `requestSubmit()`;
+  React flushes `setInput("")` later, so it always still looks full.
+  Take a fresh `preview_snapshot` instead: an EMPTY textarea plus a user
+  bubble is the only real proof the submit went through.
 
 ## Business decisions (Sep 14)
 - The agent QUOTES REAL PRICES. It used to refuse and ask for contact
@@ -130,6 +166,50 @@ Explain as you go. Ask before big changes.
   `Name / Business / Project / Budget / Timeline / Needs / Quality`
 - What you sell clients: setup $500-1,500, then $400-800/month.
   Always charge setup.
+
+## Templates + Phase 2 (Sep 21)
+- Six Framer templates, each with an Arabic and an English version at
+  the SAME price. Free: بصمة (Navarro), حدة رقمية (Boldcore),
+  نُقطة (Nokta). $99: بوصلة (Pillarum), سَرْد (Narric), نَبض (Pulsai).
+- All knowledge lives in `lib/system-prompt.ts`. One file, editable.
+- Rules that were decided, not guessed: unlimited sites, no reselling,
+  no refunds, lifetime updates, 1 month support on paid only, images
+  and fonts included, free templates need email but no card.
+  Custom domain needs a PAID FRAMER plan — paid to Framer, not Wael,
+  and the agent must never quote Framer's numbers.
+- Customization starts at $300 (content, logo, colors, fonts, NO new
+  pages). Anything bigger, Wael quotes. The agent never gives a final
+  customization price.
+- Lead behaviour, the important part: the agent does NOT ask for
+  contact details from someone who just wants to buy a template —
+  they click the Polar link. A template lead means CUSTOMIZATION
+  interest. That is the only template lead worth having.
+- `save_lead` now has a required `type`: `project` or `template`.
+  For a template lead, `project` holds e.g. `تخصيص قالب نَبض`.
+  The email subject reads `New template lead: …` so the inbox sorts
+  itself. One schema, not two systems.
+- GOTCHA: five of the six page lists on waelwebdesign.com were WRONG
+  (pages listed that 404 on the live demos). Everything in the prompt
+  was verified against the live demos on Sep 21, not copied from the
+  site. If a template changes, check the demo before editing here.
+  Confirmed absent: بوصلة has no pricing page, سَرْد has no contact
+  page and no about page.
+- GOTCHA: the no-markdown prompt rule holds in Arabic but SLIPS in
+  English — asked to compare three templates in English, Claude
+  reaches for `**bold**` every time, and the bubbles show the
+  asterisks literally. Prompt rules alone did not fix it across three
+  attempts. Real fix: `stripMarkdown()` in `app/api/chat/route.ts`
+  strips `**`, `__`, `#` headings and `-` bullets from every reply.
+  Deterministic, so it cannot slip. Keep both the rule and the strip.
+- GOTCHA: the "reply in the visitor's language" rule only works when
+  it sits at the END of the prompt as well as the top. Moving it to
+  the style section alone made Claude answer English questions in
+  Arabic. Recency matters in a long prompt.
+- GOTCHA: `stripMarkdown` originally used the regex `s` flag, which
+  this project's TS target rejects (TS1501). Use `[\s\S]` instead.
+  `npx tsc --noEmit` catches it; `next dev` does not.
+- Terminal test scripts live in the scratchpad, not the repo. Any test
+  conversation that gives a name and phone sends a REAL email.
 
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.
