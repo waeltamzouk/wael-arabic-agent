@@ -192,12 +192,36 @@ Explain as you go. Ask before big changes.
   For a template lead, `project` holds e.g. `تخصيص قالب نَبض`.
   The email subject reads `New template lead: …` so the inbox sorts
   itself. One schema, not two systems.
-- GOTCHA: five of the six page lists on waelwebdesign.com were WRONG
-  (pages listed that 404 on the live demos). Everything in the prompt
-  was verified against the live demos on Sep 21, not copied from the
-  site. If a template changes, check the demo before editing here.
-  Confirmed absent: بوصلة has no pricing page, سَرْد has no contact
-  page and no about page.
+- GROUND TRUTH for template structure is the Framer PAGE TREE in the
+  project (Pages panel), not the demo and not waelwebdesign.com.
+  The tree shows unlinked pages and exact CMS item counts; crawling a
+  demo only sees what the homepage features. Verified Sep 21:
+    بصمة     Home, /projects (8), /blogs (8), /contact, /404
+    بوصلة    Home, /about, /services (4), /case-studies (4),
+             /insights (10), Team (8), /contact, /legal (2), /404
+    حدة رقمية Home, /projects (4), /studio, /contact, /404
+    سَرْد     Home, /blogs (36), /categories (6), /topics (11),
+             /resources (6), /sponsored (8), /authors (7),
+             /subscribe, /legal (2), /404
+    نُقطة     Home, /work (6, folder — NO index page), /contact, /404
+    نَبض      Home, /about, /services, /case-studies (6),
+             /blog-posts (6), /pricing, /contact, /legal (2), /404
+  Folder icon = CMS detail pages with NO index page, so that path
+  404s. Page icon = a real index page. This is why
+  bosla/case-studies and nookta/work 404 while nabdh/case-studies
+  works.
+- GOTCHA: do NOT read the "الصفحات التي يتضمنها القالب" section on
+  waelwebdesign.com to learn a template's structure. It renders as a
+  carousel/grid and shows a partial set depending on width and state.
+  Claude misread it twice on Sep 21 — once as 5 items, once as 10 —
+  and built a whole false conclusion ("the lists are boilerplate
+  copied across six templates") on the first misread. Parsing the
+  served HTML was also incomplete. Ask Wael for the page tree.
+- CMS counts in the prompt come from the page tree and were wrong
+  before Sep 21 because they were counted from homepage links:
+  بصمة was 4/4 (really 8/8), بوصلة team was 3 (really 8),
+  سَرْد authors 4 (really 7), resources 4 (really 6),
+  sponsored 4 (really 8).
 - GOTCHA: the no-markdown prompt rule holds in Arabic but SLIPS in
   English — asked to compare three templates in English, Claude
   reaches for `**bold**` every time, and the bubbles show the
