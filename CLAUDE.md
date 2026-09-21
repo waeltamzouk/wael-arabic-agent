@@ -313,9 +313,16 @@ Explain as you go. Ask before big changes.
   the whole screen, and it would swallow every click on the page.
 - Framer side is `framer-bubble.html` in the repo root. It is NOT
   served or routed — it is a snippet to paste into
-  Framer → Insert → Utility → Embed → HTML.
-  `EMBED_ORIGIN` at the top is already set to
+  Framer → Site Settings → General → Custom Code →
+  "End of <body> tag". `EMBED_ORIGIN` at the top is already set to
   `https://wael-arabic-agent.vercel.app`.
+- GOTCHA: do NOT use Insert → Embed for this. The Embed component
+  puts a BOX INSIDE the layout of ONE page, and a floating bubble
+  has to sit outside the layout on EVERY page. Custom Code is the
+  right slot and is where Framer expects chat widgets to go.
+- GOTCHA: custom code does not run on the canvas or in editor
+  preview — only on the PUBLISHED site. Publish, then check the real
+  URL. Nothing appearing while designing is not a bug.
 - Bottom-LEFT, the conventional side on an RTL Arabic site. Moving it
   is swapping `left` for `right` in two CSS rules.
 - The iframe `src` is set on FIRST OPEN only. A visitor who never

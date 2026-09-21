@@ -1,14 +1,20 @@
 <!--
   الفقاعة العائمة — paste this into Framer.
 
-  WHERE: Framer → Insert → Utility → Embed → HTML.
-  Place it on the page (position does not matter — the CSS below pins it to
-  the bottom-left corner of the browser window, not to the spot you drop it).
-  Put it on every page you want the bubble on, or once inside a component
-  that appears site-wide.
+  WHERE: Framer → Site Settings (the gear) → General → Custom Code →
+         "End of <body> tag" → paste ALL of this → Publish.
+
+  NOT the Insert → Embed component. Embed puts a BOX INSIDE your layout on
+  ONE page. This needs to float above every page, outside the layout, which
+  is what the Custom Code panel is for. It is also where Framer expects
+  third-party chat widgets to go.
 
   EMBED_ORIGIN below is already set to the live Vercel URL. Only change it if
   the project is ever renamed or moved to a custom domain. No trailing slash.
+
+  GOTCHA: custom code does NOT run on the Framer canvas or in the editor
+  preview. The bubble only appears on the PUBLISHED site. Publish, then open
+  the real URL to check it.
 
   The launcher button lives HERE, on the Framer side. The chat panel lives in
   the iframe, on Vercel. That split is deliberate: to put the button inside
