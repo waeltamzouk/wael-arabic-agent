@@ -110,6 +110,42 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
 }
 
+// The prompt is ~250 lines of Arabic, so a single Arabic rule saying "reply in
+// the visitor's language" gets drowned out — Claude answers English questions
+// in Arabic. Moving the rule to the very end did not fix it either. Same story
+// as the markdown slip: a prompt rule alone is not enough, so pin it down in
+// code. Detecting the script is deterministic, and the directive is written in
+// ENGLISH on purpose — in a mostly-Arabic prompt it stands out.
+function detectLanguage(text: string): "ar" | "en" {
+  const arabic = (text.match(/[\u0600-\u06FF]/g) ?? []).length;
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  return latin > arabic ? "en" : "ar";
+}
+
+const ENGLISH_DIRECTIVE = `
+
+## LANGUAGE OF THIS REPLY — THIS OVERRIDES EVERY RULE ABOVE
+The visitor's latest message is in ENGLISH. Write your entire reply in
+English, from the first word to the last. Do not write a single Arabic
+sentence. Give the English preview link and, only if they asked to buy, the
+English Polar link. Never give the waelwebdesign.com template page to an
+English speaker — that page is Arabic only.`;
+
+const ARABIC_DIRECTIVE = `
+
+## لغة هذا الرد
+آخر رسالة من الزائر بالعربية. رد بالعربية كاملة، وأعطه صفحة القالب على موقع
+وائل إذا كان مهتماً بقالب.`;
+
+function systemFor(messages: ChatMessage[]) {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const language = lastUser ? detectLanguage(lastUser.content) : "ar";
+  return (
+    SYSTEM_PROMPT +
+    (language === "en" ? ENGLISH_DIRECTIVE : ARABIC_DIRECTIVE)
+  );
+}
+
 export async function POST(req: NextRequest) {
   // Cheapest check first, and the only one that runs before the body is read.
   if (!isAllowedOrigin(req)) {
@@ -150,10 +186,12 @@ export async function POST(req: NextRequest) {
   if (oversized) return refuse(req, oversized);
 
   try {
+    const system = systemFor(messages);
+
     const first = await anthropic.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system,
       tools: [LEAD_TOOL],
       messages,
     });
@@ -170,7 +208,7 @@ export async function POST(req: NextRequest) {
       final = await anthropic.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
+        system,
         tools: [LEAD_TOOL],
         messages: [
           ...messages,

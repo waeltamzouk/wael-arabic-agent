@@ -270,6 +270,21 @@ Explain as you go. Ask before big changes.
   it sits at the END of the prompt as well as the top. Moving it to
   the style section alone made Claude answer English questions in
   Arabic. Recency matters in a long prompt.
+- SUPERSEDED Sep 21: position at the end was NOT enough either. The
+  prompt is ~250 lines of Arabic and one Arabic rule asking for
+  English gets drowned out. Confirmed pre-existing, not a regression:
+  the same English question answered in Arabic on PRODUCTION before
+  any Phase 3 prompt edit. Adding an emphatic final section did not
+  fix it. Real fix, same shape as `stripMarkdown`: `detectLanguage()`
+  in `app/api/chat/route.ts` counts Arabic vs Latin characters in the
+  LAST user message and appends a per-request directive to the
+  system prompt. The English directive is written IN ENGLISH on
+  purpose — in a mostly-Arabic prompt it stands out. Deterministic,
+  so it cannot slip. Keep the prompt rule too.
+- Verified Sep 21: English question answered fully in English;
+  switching to English mid-Arabic conversation switched the reply;
+  Arabic question still Arabic. No markdown in the English list
+  answer either.
 - GOTCHA: `stripMarkdown` originally used the regex `s` flag, which
   this project's TS target rejects (TS1501). Use `[\s\S]` instead.
   `npx tsc --noEmit` catches it; `next dev` does not.
@@ -392,6 +407,38 @@ Explain as you go. Ask before big changes.
   the correct 99 dollar answer with the nabdh.framer.website link, no
   markdown, no greeting. X fires the close message. Homepage card
   unchanged.
+
+## Template links (Sep 21)
+- DECISION: the default link for an Arabic visitor interested in a
+  template is now its page on waelwebdesign.com, NOT the Polar link.
+  Polar is given only when the visitor asks to buy or get it
+  outright. The demo link is unchanged.
+- Why: the 12 Polar URLs are hardcoded in `lib/system-prompt.ts`. If
+  Polar ever regenerates one the agent hands out a dead checkout link
+  and NOTHING surfaces the failure. A waelwebdesign.com URL is one
+  Wael controls and can redirect. The Polar URLs are also ~70
+  opaque characters, which reads as spam inside Arabic text.
+- The six pages, verified live Sep 21 from the /template index:
+    بصمة      /template/navarro
+    بوصلة     /template/bosla
+    حدة رقمية /template/heddah
+    سَرْد      /template/sard
+    نُقطة      /template/nookta
+    نَبض       /template/nabdh
+- GOTCHA: the page slug does NOT always match the demo subdomain.
+  بصمة is `navarro` on the site but `bassma.framer.website` as a
+  demo. Guessing the slug from the demo 404s.
+- The site is Arabic ONLY — `/en` and `/en/template/...` both 404 and
+  there is no hreflang. So an ENGLISH visitor must never be sent to a
+  template page; they get the English demo and the English Polar
+  link. This is enforced in the language directive in `route.ts`, not
+  just in the prompt.
+- GOTCHA: the agent called the Polar link "رابط التحميل" on the live
+  site, which CLAUDE.md already forbids — nothing is downloaded, it
+  is a Framer Remix link. The old rule only covered delivery AFTER
+  purchase, so labelling the CHECKOUT link slipped through the gap.
+  Now named explicitly: call it رابط الحصول على القالب or رابط
+  الشراء, never a download, at any stage.
 
 ## Workflow
 - One chat per task, named like `W2-T1 — Claude SDK — Part 1`.
