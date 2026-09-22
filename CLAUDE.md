@@ -63,12 +63,13 @@ Explain as you go. Ask before big changes.
 - [x] Phase 5 (Sep 22): funnel visibility — Upstash counters, /stats page, live
       and verified writing. The "opened" ping still needs the Framer
       snippet re-pasting and publishing.
-- [x] W6-T4 (Sep 22): Polar buyers → Resend Audience. `/api/polar`,
-      signature verified under both of Polar's key schemes, duplicate-
-      and unsubscribe-safe, failures logged and swallowed. Tested
-      locally 17/17. NOT YET LIVE: needs the three env vars in Vercel,
-      the endpoint created in Polar, and the consent checkbox — see
-      "Polar buyers → mailing list".
+- [x] W6-T4 (Sep 22): Polar buyers → Resend Audience. LIVE AND VERIFIED
+      END TO END on a real Polar delivery: a free Navarro download landed
+      in "Templates (English)" and not the Arabic list. That single test
+      proved the signature against the real secret, soft-optin loading,
+      `RESEND_AUDIENCE_ID_EN` loading, and the routing. Locally 17/17
+      plus 15/15 on routing. REMAINING: send a test broadcast and CLICK
+      the unsubscribe link — see "Polar buyers → mailing list".
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -974,6 +975,12 @@ And for Wael: start a fresh chat at the start of each week's task.
   the older one uses its raw UTF-8 bytes. The symptom of picking wrong
   is 403 on every delivery, indistinguishable from a wrong secret.
   `verifyPolarSignature` tries both, like Polar's own SDK.
+- CONFIRMED ON A REAL ORDER, Sep 22: Polar fires BOTH `order.created`
+  and `order.paid` for one purchase, and for a FREE ($0) product both
+  arrive already `paid`. So one download produced two deliveries: the
+  first added the buyer, the second answered `already` and wrote nothing.
+  If `buyer_added` and `buyer_duplicate` both sit at 1 after a single
+  purchase, that is the duplicate guard working, not a bug.
 - Subscribe the endpoint to BOTH `order.created` and `order.paid` in
   Polar. `order.created` fires when the invoice is generated, which for
   card payments is BEFORE the money moves — `status` is `pending` there.
