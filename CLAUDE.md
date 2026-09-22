@@ -1043,6 +1043,18 @@ And for Wael: start a fresh chat at the start of each week's task.
   agent's 30%-code emails need their OWN list; do not let them share one
   with buyers, because "bought a template" and "wanted a discount code"
   are different people wanting different emails.
+- THE 28 BUYERS FROM BEFORE THE WEBHOOK EXISTED are imported ONCE with
+  `scripts/import-polar-orders.mjs`, from a CSV exported at Polar →
+  Sales → Orders. A CSV, not Polar's API, so there is no extra token to
+  create or leak. It reuses the webhook's rules exactly: route by the
+  product name, skip anyone unsubscribed, leave existing contacts alone,
+  and write the same properties (with `source: polar-import` so an
+  imported buyer can be told from a webhook one). DRY RUN BY DEFAULT —
+  `--write` is what actually touches the list.
+  Export ORDERS and not CUSTOMERS: the customers export has no product
+  column, so every buyer would land on the Arabic list and lose the
+  `template` property, which is the thing that cannot be recovered later.
+  The parser handles quoted commas, because template names contain them.
 - Counters on /stats, in their own "Template buyers" section because they
   are not chat-funnel numbers: `buyer_added`, `buyer_duplicate`,
   `buyer_no_consent`, `buyer_failed`, `polar_refused`.
