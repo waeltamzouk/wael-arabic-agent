@@ -57,8 +57,11 @@ Explain as you go. Ask before big changes.
       end on waelwebdesign.com. Three real leads delivered to the inbox:
       Arabic project, Arabic template (from `/template/nabdh`), and an
       ENGLISH project lead. All fields populated, `type` correct on both.
-- [ ] Phase 5: funnel visibility (built Sep 22, needs Upstash keys)
-- [ ] Phase 6: HubSpot
+- [x] Phase 5 (Sep 22): funnel visibility — Upstash counters, /stats page, live
+      and verified writing. The "opened" ping still needs the Framer
+      snippet re-pasting and publishing.
+- [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
+- [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
 - Remote: `git@github.com:waeltamzouk/wael-arabic-agent.git` (SSH)
@@ -758,3 +761,92 @@ And for Wael: start a fresh chat at the start of each week's task.
 - The Upstash error body can echo request details, so it is logged
   server-side only. The page shows the STATUS CODE's meaning, never the
   body, and never any part of the token.
+
+## Direction, decided Sep 22
+- THE BUSINESS GOAL, stated plainly: Framer design + an Arabic AI agent +
+  lead capture, sold together as a package. The agent is the PRODUCT and
+  the CRM is PLUMBING. You integrate plumbing; you build products.
+- DECIDED: do NOT build a custom CRM. A CRM is auth, multi-tenancy,
+  permissions, exports, backups, mobile and support-forever — a product
+  company's job, competing with firms employing hundreds of engineers.
+  Wael's edge is Arabic conversational quality, which nobody copies
+  quickly. Integrate with whatever the client already uses instead.
+- The middle path for clients with NO CRM: a lightweight per-client leads
+  view. The /stats page is already ~80% of it — key-protected page,
+  Upstash, counts. Days of work, not months. NOT a CRM: a list with a
+  "contacted" checkbox.
+- WhatsApp, in three tiers, because they are wildly different in cost:
+  1. `https://wa.me/<lead's number>` in the lead email. No API, no
+     approval, ~10 minutes, and it is 80% of the practical value for a
+     small Gulf client. DO THIS FIRST.
+  2. HubSpot integration — a day, free tier, and the pattern transfers to
+     Zoho or Salesforce. The best thing to LEARN first.
+  3. Real WhatsApp Business API — Meta verification, a BSP, template
+     approval, per-conversation cost. Only when a client is paying.
+- Wael's own WhatsApp: `https://wa.me/905377634437`. Prefer that over the
+  `wa.link/jgviis` shortener — same reasoning as the Polar links, a
+  middleman can break the link and nothing surfaces the failure. Use
+  https, never http.
+- OPEN QUESTION, do not guess: whether Gulf SMEs actually want HubSpot or
+  just WhatsApp. Ask two or three real prospects before building toward
+  either. Claude's read was WhatsApp, but that is a read, not data.
+
+## The two sites are SEPARATE (Sep 22)
+- `waelwebdesign.com` — Arabic, services + six templates, own clients.
+- `waeltamzouk.framer.ai` — English, templates only, SEVEN templates,
+  four free, $99 single, $149 All Access. Own clients.
+- They are NOT the same catalogue and must never be reconciled into one.
+  Claude flagged the difference as a "trust bug" on Sep 22; it is not.
+  Each agent knows its own site's catalogue and nothing else.
+- DECIDED: ONE repo, ONE Vercel deployment, TWO prompts. Split
+  `lib/system-prompt.ts` into `lib/prompts/ar-waelwebdesign.ts` and
+  `lib/prompts/en-templates.ts`, chosen by a `site` param on `/embed`.
+  Two folders would mean every gotcha in this file gets fixed twice, or
+  silently drifts. The prompt is the ONLY thing that differs.
+- The English site's "Take the quiz" button is currently DEAD — it goes
+  nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
+  building and recommends a template is a conversation wearing a form's
+  clothes, and the agent already does template matching. A form gives you
+  an email; a conversation tells you WHY they came.
+- IMPORTANT DESIGN DIFFERENCE: the English agent captures an EMAIL in
+  exchange for the 30% code, and that email goes to a Resend Audience.
+  The Arabic agent captures NAME + PHONE and emails a qualified lead.
+  Different field, different destination, different success condition —
+  so the English agent needs its own tool, NOT `save_lead`.
+- The 30% discount code exists in Polar. Never promise a discount that
+  404s at checkout — same failure mode as a dead Polar link.
+
+## Polar buyers → mailing list (Sep 22)
+- Wael already has buyer emails sitting in the Polar dashboard, unused.
+- DECIDED: automate it — a Polar webhook on `order.created` hits an
+  endpoint in THIS app and adds the buyer to a Resend Audience. Resend is
+  already a dependency and does Broadcasts, so announcing a new template
+  costs nothing extra. (Claude suggested a manual CSV export first to
+  test whether anyone opens them; Wael chose to automate properly.)
+- NOT OPTIONAL: a working unsubscribe link on every marketing email, and
+  check what consent Polar's checkout actually captured. "They bought
+  something" is not blanket permission to market to them.
+
+## Cost and the API balance (Sep 22)
+- THE AGENT WENT DOWN on Sep 22: the Anthropic credit balance hit zero
+  and every request returned 400. Nothing in the app warned anyone — it
+  was found by accident while testing. The visitor sees the generic
+  Arabic error, so no English billing text leaks, but the chat is dead.
+- Rough cost: the system prompt is ~9,100 tokens and is re-sent on every
+  message, so ONE full qualifying conversation is about $0.25-0.30.
+  $5 ≈ 17 conversations. $20 ≈ 70.
+- FIX THE BLIND SPOT: turn on auto-reload in Anthropic billing, and
+  consider a one-off email (via the Resend setup that already exists)
+  the first time the route sees a billing error.
+- PROMPT CACHING is the highest-value technical change left. The ~9,100
+  token prompt is byte-identical every request. It does NOT affect
+  quality — the model receives identical tokens, caching only skips
+  re-processing them — and it makes replies FASTER.
+  THE CATCH: `systemFor()` appends the per-request language directive, so
+  the system string is NOT identical. The cache breakpoint must sit
+  BETWEEN the static prompt and the directive:
+  `system: [{text: SYSTEM_PROMPT, cache_control:{type:"ephemeral"}}, {text: directive}]`
+  HONEST LIMIT: a cache write costs ~1.25x and the cache expires in
+  minutes, so the win is WITHIN a conversation (one write, then cheap
+  reads). At one visitor an hour it is roughly break-even. ~75% off the
+  system-prompt cost in a real conversation, not the 90% first claimed.

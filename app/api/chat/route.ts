@@ -130,14 +130,33 @@ function detectLanguage(text: string): "ar" | "en" {
   return latin > arabic ? "en" : "ar";
 }
 
+// GOTCHA that cost a live bug: the heading used to read "THIS OVERRIDES EVERY
+// RULE ABOVE". It was only ever meant to override the LANGUAGE rules, but the
+// model read it literally and dropped the no-greeting rule with it — an
+// English visitor got "Hi! How can I help you today?" on top of the site's own
+// welcome bubble. Scope the override, and restate the greeting ban here, where
+// recency actually makes it stick.
 const ENGLISH_DIRECTIVE = `
 
-## LANGUAGE OF THIS REPLY — THIS OVERRIDES EVERY RULE ABOVE
+## THIS REPLY — LANGUAGE AND OPENING
+This section overrides the LANGUAGE rules above and nothing else. Every other
+rule in the prompt still applies in full.
+
 The visitor's latest message is in ENGLISH. Write your entire reply in
 English, from the first word to the last. Do not write a single Arabic
 sentence. Give the English preview link and, only if they asked to buy, the
 English Polar link. Never give the waelwebdesign.com template page to an
-English speaker — that page is Arabic only.`;
+English speaker — that page is Arabic only.
+
+NEVER GREET, and this holds in English exactly as it does in Arabic. The
+website already greeted this visitor with a welcome message you cannot see, so
+a greeting from you is the second one they read. Do not open with "Hi",
+"Hello", "Hey", "Welcome" or any other greeting word.
+
+If their message is ONLY a greeting with no question, do not greet back and do
+not ask "how can I help you" — that wastes the whole reply and they already
+know they can ask. Open with something concrete instead: the websites Wael
+builds and what they cost, or the six ready-made templates.`;
 
 const ARABIC_DIRECTIVE = `
 
@@ -147,7 +166,13 @@ const ARABIC_DIRECTIVE = `
 الافتراضي الوحيد.
 ممنوع في هذا الرد أن تعطي رابط Polar أو تذكره أو تلمّح له، إلا إذا كانت
 آخر رسالة من الزائر تطلب الشراء أو الحصول على القالب صراحةً. إذا لم يطلب
-ذلك بنفسه، فلا وجود لرابط Polar في ردك إطلاقاً.`;
+ذلك بنفسه، فلا وجود لرابط Polar في ردك إطلاقاً.
+وممنوع تبدأ ردك بتحية. الموقع رحّب بالزائر قبلك برسالة أنت ما تشوفها، فأي
+تحية منك هي التحية الثانية اللي يقراها. لا تقل "مرحباً" ولا "أهلاً" ولا
+"أهلاً بك" ولا "هلا".
+وإذا كانت رسالته مجرد تحية بدون سؤال، لا ترد التحية ولا تسأل "كيف أقدر
+أساعدك" — هذا يضيّع الرد كله وهو أصلاً يعرف إنه يقدر يسأل. بدل ذلك ابدأ
+بشيء ملموس: المواقع اللي يصممها وائل وأسعارها، أو القوالب الجاهزة الستة.`;
 
 function languageOf(messages: ChatMessage[]): "ar" | "en" {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
