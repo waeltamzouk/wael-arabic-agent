@@ -60,6 +60,15 @@ export async function sendLead(lead: Lead) {
     const { error } = await resend.emails.send({
       from: FROM,
       to,
+      // `from` is a SEND-ONLY address. waelwebdesign.com has no MX records, so
+      // nothing can receive mail there and a reply to it simply disappears —
+      // no bounce, no warning. Reply-To points at the inbox that already gets
+      // the lead, so hitting reply out of habit lands somewhere real.
+      //
+      // Defaulted rather than configured: the address that should receive a
+      // reply is the one already receiving the lead. That also keeps a real
+      // email address out of this file — the repo is public.
+      replyTo: to,
       subject: `New ${lead.type ?? "project"} lead: ${lead.name} — ${
         lead.project?.trim() || "website"
       }`,

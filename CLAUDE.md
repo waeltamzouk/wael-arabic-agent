@@ -1065,6 +1065,23 @@ And for Wael: start a fresh chat at the start of each week's task.
   column, so every buyer would land on the Arabic list and lose the
   `template` property, which is the thing that cannot be recovered later.
   The parser handles quoted commas, because template names contain them.
+- GOTCHA, found Sep 22: `waelwebdesign.com` HAS NO MX RECORDS. Nothing
+  can receive mail at that domain, so `wael@waelwebdesign.com` and
+  `leads@waelwebdesign.com` are SEND-ONLY and a reply to either simply
+  disappears — no bounce, no warning. That matters because both
+  announcement templates invite a reply ("رد على هذي الرسالة").
+  So every email carries a REPLY-TO of `waelwebdesign@gmail.com`:
+  `sendLead` defaults it to `LEAD_TO_EMAIL` (no new env var, and no real
+  address committed to a public repo), and both draft broadcasts have it
+  set in Resend. Verified on a real send: `reply_to` came back set.
+- You CANNOT send FROM a gmail.com address through Resend. The From
+  address must be on a domain verified in Resend, and Gmail's own DMARC
+  would reject mail claiming to be from it anyway. From = the domain,
+  Reply-To = the Gmail. That split is the answer whenever this comes up.
+- GOTCHA: PATCHing a broadcast in the Resend API WIPES any field not
+  included in the body. Updating only `reply_to` blanked both drafts'
+  names to "Untitled". Send the fields you want to keep, or edit in the
+  dashboard.
 - Counters on /stats, in their own "Template buyers" section because they
   are not chat-funnel numbers: `buyer_added`, `buyer_duplicate`,
   `buyer_no_consent`, `buyer_failed`, `polar_refused`.
