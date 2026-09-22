@@ -904,6 +904,39 @@ And for Wael: start a fresh chat at the start of each week's task.
   resolves to an EMPTY STRING: the email sends, looks perfect, and the
   unsubscribe link is a dead `href=""`. Nothing warns you. Send a test
   to yourself and CLICK the link before every announcement.
+- TWO LISTS, decided Sep 22: the catalogues are separate (see "The two
+  sites are SEPARATE"), so the buyers are too. Arabic templates go to
+  `RESEND_AUDIENCE_ID`, English ones to `RESEND_AUDIENCE_ID_EN`
+  ("Templates (English)", created Sep 22). Never announce to them as one.
+- The list is chosen by the PRODUCT NAME's script — the same Arabic vs
+  Latin test the chat route uses on a visitor's message — because every
+  Arabic template is named in Arabic and every English one is not, so the
+  data already carries the answer and a new template routes itself.
+  Verified 15/15 against the real names on all 12 live checkout pages,
+  plus `Smart Email Copy` and `Text Entrance` (both → English) and an
+  order with no product name (→ Arabic, the main catalogue).
+  THE LIMIT: it reads the NAME, not the catalogue. An Arabic template
+  named in Latin script would go to the English list. Every order logs
+  which list it chose and why, so a mis-route is one grep away. If it
+  ever happens, rename the product or switch to an explicit id list.
+- A buyer who owns an Arabic template and then buys an English one is
+  added to BOTH lists. That is deliberate, not a duplicate bug. A repeat
+  purchase within the SAME list returns `already` and writes nothing.
+- RESEND HAS MOVED TO ACCOUNT-LEVEL CONTACTS, and this bit almost cost
+  a real unsubscribe. An "audience" is now a SEGMENT over account-wide
+  contacts, and `unsubscribed` belongs to the CONTACT, not to their
+  membership of a segment. Two consequences:
+  1. `contacts.get({ email, audienceId })` answers `not_found` for
+     someone who is unsubscribed account-wide but simply not in that
+     segment. The first version of `addBuyer` looked up scoped to the
+     audience, got `not_found`, created — and reset them to subscribed.
+     THE LOOKUP MUST BE ACCOUNT-LEVEL: `contacts.get({ email })`, with
+     the audience-scoped check only AFTER that proves they are not an
+     unsubscriber. Verified against the live API both ways.
+  2. `contacts.remove({ audienceId, email })` only removes them from the
+     SEGMENT. The contact still exists account-wide and still shows in
+     the Resend dashboard, which looks exactly like a delete that did
+     not work. To really delete: `DELETE /contacts/<id>`, no audience.
 - GOTCHA, measured against the live Resend API on Sep 22, and it is the
   reason `addBuyer` looks the contact up before creating it:
   `contacts.create` on an email already in the audience does NOT error.

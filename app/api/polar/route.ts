@@ -33,6 +33,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { addBuyer } from "@/lib/mailing-list";
 import { record } from "@/lib/stats";
 import {
+  audienceFor,
+  audienceId,
   consentFrom,
   consentMode,
   consentSlug,
@@ -156,10 +158,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Which catalogue they bought from decides which list they land on. Logged
+  // with the product name so a mis-route is visible in one line rather than
+  // being found later in the wrong audience.
+  const list = audienceFor(order);
+
+  console.log(
+    `[mailing-list] order ${order.id} -> ${list} list (product: ${order.product ?? "unnamed"})`
+  );
+
   const outcome = await addBuyer({
     email: order.email,
     name: order.name,
+    audienceId: audienceId(list),
     orderId: order.id,
+    list,
   });
 
   record(
@@ -171,5 +184,5 @@ export async function POST(req: NextRequest) {
   );
 
   // 200 even on "failed", by the rule at the top of this file.
-  return ok(`order ${order.id}: ${outcome}`);
+  return ok(`order ${order.id}: ${outcome} (${list} list)`);
 }

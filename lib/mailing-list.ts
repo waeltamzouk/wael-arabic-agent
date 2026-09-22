@@ -22,8 +22,11 @@ export type Buyer = {
   email: string;
   /** Full name as Polar has it. Split into first/last for Resend. */
   name?: string;
-  /** For the log only: which order put them here. */
+  /** Which audience to add them to. The caller decides — see `audienceFor`. */
+  audienceId?: string;
+  /** For the log only: which order put them here, and which list it chose. */
   orderId?: string;
+  list?: string;
 };
 
 export type Outcome =
@@ -64,11 +67,11 @@ function splitName(name?: string): { firstName?: string; lastName?: string } {
  */
 export async function addBuyer(buyer: Buyer): Promise<Outcome> {
   const apiKey = process.env.RESEND_API_KEY;
-  const audienceId = process.env.RESEND_AUDIENCE_ID?.trim();
+  const audienceId = buyer.audienceId;
 
   if (!apiKey || !audienceId) {
     console.error(
-      "Buyer not added: RESEND_API_KEY or RESEND_AUDIENCE_ID is missing. The audience id is on https://resend.com/audiences — it is a UUID, not the audience's name."
+      `Buyer not added: RESEND_API_KEY or the ${buyer.list === "en" ? "RESEND_AUDIENCE_ID_EN" : "RESEND_AUDIENCE_ID"} audience id is missing. The id is on https://resend.com/audiences — a UUID, not the audience's name.`
     );
     return "disabled";
   }
@@ -78,13 +81,41 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
   try {
     const resend = new Resend(apiKey);
 
-    const existing = await resend.contacts.get({ email, audienceId });
+    // THE LOOKUP IS DELIBERATELY NOT SCOPED TO THE AUDIENCE, and getting this
+    // wrong reopens the exact hole this function exists to close.
+    //
+    // Resend has moved to ACCOUNT-LEVEL contacts: an audience is now a segment
+    // over them, and `unsubscribed` belongs to the CONTACT, not to their
+    // membership of a segment. So someone can be unsubscribed account-wide and
+    // still be absent from this segment — and an audience-scoped lookup
+    // answers `not_found` for them. Create on that answer and you have just
+    // resubscribed a person who opted out, silently, because they bought a
+    // second template. Verified against the live API on Sep 22.
+    //
+    // Looking them up account-wide is what makes an unsubscribe stick.
+    const existing = await resend.contacts.get({ email });
 
-    if (existing.data) {
+    if (existing.data?.unsubscribed) {
+      // The whole point. They opted out; a purchase does not undo that.
       console.log(
-        `[mailing-list] already subscribed (unsubscribed=${existing.data.unsubscribed}), left untouched — order ${buyer.orderId ?? "?"}`
+        `[mailing-list] ${email} unsubscribed previously — left alone, order ${buyer.orderId ?? "?"}`
       );
       return "already";
+    }
+
+    if (existing.data) {
+      // Known and still subscribed. They may or may not be in THIS audience —
+      // a buyer of an Arabic template who now buys an English one is a real
+      // case. `create` below adds them to it, and passing `unsubscribed: false`
+      // for someone already subscribed changes nothing.
+      const inAudience = await resend.contacts.get({ email, audienceId });
+
+      if (inAudience.data) {
+        console.log(
+          `[mailing-list] already in this audience, left untouched — order ${buyer.orderId ?? "?"}`
+        );
+        return "already";
+      }
     }
 
     // `not_found` is the ONLY error that means "go ahead and create". Anything
@@ -119,7 +150,7 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
       return "failed";
     }
 
-    console.log(`[mailing-list] added ${email} — order ${buyer.orderId ?? "?"}`);
+    console.log(`[mailing-list] added ${email} to the ${buyer.list ?? "?"} list — order ${buyer.orderId ?? "?"}`);
     return "added";
   } catch (error) {
     console.error("Resend threw while adding a buyer:", error);

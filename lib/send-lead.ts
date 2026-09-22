@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { whatsappLink } from "./whatsapp";
 
 export type Lead = {
   name: string;
@@ -19,6 +20,17 @@ function line(label: string, value?: string) {
   return `${label}: ${value?.trim() || "—"}`;
 }
 
+// An ADDITION to the plain phone number above it, never a replacement: the
+// number itself is always readable even when no link could be built. Bare
+// https:// URLs are auto-linked by Gmail and Apple Mail, so this is one tap
+// on a phone without the email needing an HTML part.
+function whatsappLine(phone: string) {
+  const link = whatsappLink(phone);
+  return link.ok
+    ? line("WhatsApp", link.url)
+    : line("WhatsApp", `no link — ${link.reason}`);
+}
+
 export async function sendLead(lead: Lead) {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.LEAD_TO_EMAIL;
@@ -32,6 +44,7 @@ export async function sendLead(lead: Lead) {
     line("Type", lead.type),
     line("Name", lead.name),
     line("Phone", lead.phone),
+    whatsappLine(lead.phone),
     line("Business", lead.business),
     line("Project", lead.project),
     line("Budget", lead.budget),

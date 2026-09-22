@@ -136,6 +136,12 @@ function detectLanguage(text: string): "ar" | "en" {
 // English visitor got "Hi! How can I help you today?" on top of the site's own
 // welcome bubble. Scope the override, and restate the greeting ban here, where
 // recency actually makes it stick.
+//
+// KEEP THE TWO DIRECTIVES SYMMETRIC. The greeting ban held 9/9 in English and
+// slipped in Arabic, and the difference was in the wording, not the language:
+// English said "or any other greeting word", Arabic listed four strings and
+// stopped. The model slipped out through "أهلاً وسهلاً", which is not one of
+// the four. A closed list reads as the whole rule. Say the list is examples.
 const ENGLISH_DIRECTIVE = `
 
 ## THIS REPLY — LANGUAGE AND OPENING
@@ -167,11 +173,18 @@ const ARABIC_DIRECTIVE = `
 ممنوع في هذا الرد أن تعطي رابط Polar أو تذكره أو تلمّح له، إلا إذا كانت
 آخر رسالة من الزائر تطلب الشراء أو الحصول على القالب صراحةً. إذا لم يطلب
 ذلك بنفسه، فلا وجود لرابط Polar في ردك إطلاقاً.
-وممنوع تبدأ ردك بتحية. الموقع رحّب بالزائر قبلك برسالة أنت ما تشوفها، فأي
-تحية منك هي التحية الثانية اللي يقراها. لا تقل "مرحباً" ولا "أهلاً" ولا
-"أهلاً بك" ولا "هلا".
+وممنوع تبدأ ردك بتحية، وهذا ينطبق بالعربية تماماً مثل الإنجليزية. الموقع
+رحّب بالزائر قبلك برسالة أنت ما تشوفها، فأي تحية منك هي التحية الثانية
+اللي يقراها.
+القاعدة هي منع التحية نفسها، مو منع كلمات بعينها. وهذي أمثلة وليست
+حصراً: "مرحباً"، "أهلاً"، "أهلاً بك"، "أهلاً وسهلاً"، "هلا"، "يا هلا"،
+"حياك الله"، "السلام عليكم"، "وعليكم السلام"، "صباح الخير"، "مساء
+الخير"، "تحية طيبة". أي صيغة تحية أخرى غير مذكورة هنا ممنوعة كذلك.
+وحتى لو بدأ الزائر رسالته بتحية، لا ترد تحيته ولا تقابلها بمثلها. تجاهلها
+تماماً وابدأ بالمحتوى من أول كلمة.
 وإذا كانت رسالته مجرد تحية بدون سؤال، لا ترد التحية ولا تسأل "كيف أقدر
-أساعدك" — هذا يضيّع الرد كله وهو أصلاً يعرف إنه يقدر يسأل. بدل ذلك ابدأ
+أساعدك" ولا "كيف أساعدك" ولا "وش تحتاج" ولا أي صيغة ثانية من نفس
+السؤال — هذا يضيّع الرد كله وهو أصلاً يعرف إنه يقدر يسأل. بدل ذلك ابدأ
 بشيء ملموس: المواقع اللي يصممها وائل وأسعارها، أو القوالب الجاهزة الستة.`;
 
 function languageOf(messages: ChatMessage[]): "ar" | "en" {

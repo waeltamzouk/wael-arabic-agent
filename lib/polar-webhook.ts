@@ -276,3 +276,43 @@ export function consentMode(): "checkbox" | "soft-optin" {
     ? "soft-optin"
     : "checkbox";
 }
+
+// ---------------------------------------------------------------------------
+// 4. Which list
+// ---------------------------------------------------------------------------
+//
+// Two catalogues, two audiences, per "The two sites are SEPARATE" in
+// CLAUDE.md: waelwebdesign.com sells six Arabic-named templates, and
+// waeltamzouk.framer.ai sells the English ones. They are not the same list and
+// must never be announced to as one.
+//
+// The product NAME decides it, same deterministic script test the chat route
+// uses on a visitor's message. Every Arabic template is named in Arabic and
+// every English one in Latin script, so the data already carries the answer —
+// and unlike a hardcoded list of product ids, a new template is routed
+// correctly the day it is created, with nothing to remember to update.
+//
+// THE LIMIT, and it is why the choice is logged on every order: this reads the
+// NAME, not the catalogue. An Arabic template named in Latin script would go
+// to the English list. If that ever happens the log line says which list was
+// chosen and why, and the fix is to rename the product or move to an explicit
+// id list. An order with no product name at all falls back to Arabic, which is
+// the main catalogue.
+
+export type Audience = "ar" | "en";
+
+export function audienceFor(order: PolarOrder): Audience {
+  const name = order.product ?? "";
+  const arabic = (name.match(/[\u0600-\u06FF]/g) ?? []).length;
+  const latin = (name.match(/[A-Za-z]/g) ?? []).length;
+  return latin > arabic ? "en" : "ar";
+}
+
+/** The audience id for that list, or undefined when it is not configured. */
+export function audienceId(list: Audience): string | undefined {
+  const value =
+    list === "en"
+      ? process.env.RESEND_AUDIENCE_ID_EN
+      : process.env.RESEND_AUDIENCE_ID;
+  return value?.trim() || undefined;
+}
