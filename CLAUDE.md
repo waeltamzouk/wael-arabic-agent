@@ -68,8 +68,9 @@ Explain as you go. Ask before big changes.
       in "Templates (English)" and not the Arabic list. That single test
       proved the signature against the real secret, soft-optin loading,
       `RESEND_AUDIENCE_ID_EN` loading, and the routing. Locally 17/17
-      plus 15/15 on routing. REMAINING: send a test broadcast and CLICK
-      the unsubscribe link — see "Polar buyers → mailing list".
+      plus 15/15 on routing. The unsubscribe loop is CLOSED too: a real
+      broadcast resolved a real unsubscribe URL, the click registered,
+      and two further purchases did NOT put him back on either list.
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -903,6 +904,24 @@ And for Wael: start a fresh chat at the start of each week's task.
   (Claude's first choice was an opt-out box — "Don't email me about new
   templates", unticked by default — which keeps a refusal on offer and is
   the stronger basis. Wael chose removal. Both get every passive buyer.)
+- THE WHOLE LOOP IS PROVEN, Sep 22, on a real send: the broadcast
+  resolved `{{{RESEND_UNSUBSCRIBE_URL}}}` into a real signed URL (so the
+  audience WAS attached), the click registered as `unsubscribed`, and
+  two later purchases — one English, one Arabic — both answered
+  `already` and left him unsubscribed. That is the protection working
+  against a real opt-out, not a synthetic one.
+- THE FIRST BROADCAST LANDED IN GMAIL SPAM, and the cause was measured,
+  not guessed: 20 real words against 481 characters of raw unsubscribe
+  URL pasted as visible text. One sentence plus a huge opaque link is
+  the shape of a phishing mail. DNS was never the problem — DKIM, SPF,
+  the sending subdomain and DMARC (`p=none`) were all correct.
+  THE FIX: make the unsubscribe a text LINK on the word "Unsubscribe"
+  with `{{{RESEND_UNSUBSCRIBE_URL}}}` as its href, so the 481 characters
+  never appear in the body. Then write a real email — a subject that
+  names the template, and a line saying why they are receiving it.
+  Marketing should also move to a subdomain (`news.waelwebdesign.com`):
+  the root domain carries Wael's Hostinger mailbox and MailerLite is in
+  its SPF too, so a complaint there would hit the LEAD emails.
 - UNDER SOFT OPT-IN THE UNSUBSCRIBE LINK IS NOT PAPERWORK, it is the only
   thing holding the lawful basis up. No box was ticked, so the opt-out in
   every email IS the consent mechanism. If a broadcast ever goes out with
