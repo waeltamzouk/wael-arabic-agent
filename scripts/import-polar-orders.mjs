@@ -107,10 +107,17 @@ if (cEmail === -1) {
 console.log(`columns -> email:${header[cEmail]} product:${header[cProduct] ?? "(none)"} name:${header[cName] ?? "(none)"} status:${header[cStatus] ?? "(none)"}`);
 console.log(WRITE ? "\nWRITING to the lists.\n" : "\nDRY RUN — nothing will be written. Add --write when the plan below looks right.\n");
 
-// One person can own several templates. Keep the FIRST paid order per address:
-// importing them twice would just make the second call a no-op, but it also
-// doubles the API calls and muddles the log.
-const buyers = new Map();
+// One person, one entry PER LIST — not one entry per person.
+//
+// Someone who bought an Arabic template AND an English one belongs on both
+// lists, because the live webhook puts them on both. Collapsing them to a
+// single row here would quietly drop them from one catalogue's announcements,
+// and the import would disagree with the webhook for the same buyer.
+//
+// Polar exports newest-first, so the FIRST row seen for an (email, list) pair
+// is their most recent purchase from that catalogue — which is the more useful
+// value for the `template` property than their oldest.
+const buyers = new Map();   // key: `${email}\u0000${list}`
 let skippedUnpaid = 0;
 
 for (const row of rows) {
@@ -120,22 +127,30 @@ for (const row of rows) {
   const status = (row[cStatus] ?? "paid").trim().toLowerCase();
   if (cStatus !== -1 && status && status !== "paid") { skippedUnpaid++; continue; }
 
-  if (!buyers.has(email)) {
-    buyers.set(email, {
-      email,
-      name: (row[cName] ?? "").trim(),
-      product: (row[cProduct] ?? "").trim(),
-    });
+  const product = (row[cProduct] ?? "").trim();
+  const list = listFor(product);
+  const key = `${email}\u0000${list}`;
+
+  if (!buyers.has(key)) {
+    buyers.set(key, { email, list, product, name: (row[cName] ?? "").trim() });
   }
 }
 
-console.log(`${rows.length} order rows -> ${buyers.size} unique paid buyers` +
+const people = new Set([...buyers.values()].map((b) => b.email));
+const bothLists = [...people].filter(
+  (e) => buyers.has(`${e}\u0000ar`) && buyers.has(`${e}\u0000en`)
+);
+
+console.log(`${rows.length} order rows -> ${people.size} unique paid buyers -> ${buyers.size} list memberships` +
   (skippedUnpaid ? ` (${skippedUnpaid} unpaid rows skipped)` : ""));
+if (bothLists.length) {
+  console.log(`${bothLists.length} of them bought from BOTH catalogues and belong on both lists: ${bothLists.join(", ")}`);
+}
 
 const tally = { added: 0, already: 0, unsubscribed: 0, failed: 0 };
 
 for (const buyer of buyers.values()) {
-  const list = listFor(buyer.product);
+  const { list } = buyer;
   const audienceId = LISTS[list];
 
   try {
