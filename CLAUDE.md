@@ -737,3 +737,24 @@ And for Wael: start a fresh chat at the start of each week's task.
   `UPSTASH_REDIS_REST_URL` at it. Lives in the scratchpad, not the repo.
   A pipeline read is exactly `days × metrics + metrics` commands, which
   is how you can tell a read happened from the command count alone.
+- GOTCHA, and it cost a live 500: the stats page read Upstash with NO
+  try/catch, so a bad URL or token threw straight out of the component
+  and Next rendered an opaque 500. Worse, the 500 page looks identical
+  to "the feature is off", so the first check of it was misread as
+  working. LESSON: the happy path was proved against a local stand-in
+  that always succeeded — the FAILURE path was never tested at all.
+  Test the failure path of anything that talks to a service you do not
+  control. Now every read is caught and the page returns 200 with the
+  reason: 401/403 says the token is wrong, 404 says the URL is wrong,
+  and a connection failure says it is probably the redis:// string
+  instead of the https:// REST URL.
+- GOTCHA: never conclude a page works by grepping for the ABSENCE of a
+  string. An error page is missing that string too. Check the HTTP
+  status code.
+- `UPSTASH_REDIS_REST_URL` is normalised in code — trailing slashes are
+  stripped and a missing scheme gets https://. Both are what actually
+  happens when the value is copied out of a dashboard by hand, and both
+  otherwise fail with the same unhelpful error.
+- The Upstash error body can echo request details, so it is logged
+  server-side only. The page shows the STATUS CODE's meaning, never the
+  body, and never any part of the token.

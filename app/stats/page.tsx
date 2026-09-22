@@ -6,7 +6,13 @@
 // Google, and a wrong or missing key renders nothing at all.
 
 import type { Metadata } from "next";
-import { METRICS, lastDays, readTotals, statsEnabled } from "@/lib/stats";
+import {
+  METRICS,
+  lastDays,
+  readTotals,
+  statsEnabled,
+  upstashHint,
+} from "@/lib/stats";
 
 export const metadata: Metadata = {
   title: "Chat funnel",
@@ -79,7 +85,33 @@ export default async function StatsPage({
 
   const days = lastDays(DAYS);
   const metrics = [...METRICS];
-  const { byDay, overall } = await readTotals(days, metrics);
+
+  // A counter that cannot be read must never take the page down. Before this
+  // was caught, a bad Upstash URL or token threw straight out of the component
+  // and Next rendered an opaque 500 — which says nothing about what to fix and
+  // looks identical to the page being broken. Show the reason instead.
+  let byDay: Record<string, Record<string, number>>;
+  let overall: Record<string, number>;
+
+  try {
+    ({ byDay, overall } = await readTotals(days, metrics));
+  } catch (error) {
+    console.error("Stats read failed:", error);
+    return (
+      <main dir="ltr" className="mx-auto w-full min-w-0 max-w-2xl p-6 text-sm sm:p-8">
+        <h1 className="text-lg font-semibold">Chat funnel</h1>
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+          {upstashHint(error)}
+        </p>
+        <p className="mt-3 text-neutral-600">
+          Nothing is lost while this is broken — every event is still written to
+          the Vercel runtime logs as{" "}
+          <code className="rounded bg-neutral-100 px-1">[funnel]</code>. Fix the
+          variable in the Vercel project settings, then redeploy.
+        </p>
+      </main>
+    );
+  }
 
   const leads = overall.lead_project + overall.lead_template;
 

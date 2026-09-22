@@ -17,8 +17,19 @@
 
 import { after } from "next/server";
 
-const REST_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Normalised, because the value gets copied out of a dashboard by hand and the
+// three ways it usually arrives wrong all produce the same unhelpful failure:
+// a trailing slash (which makes the request path "//pipeline"), and a bare
+// host with no scheme (which makes `fetch` throw on an invalid URL).
+function restUrl(): string | undefined {
+  const raw = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  if (!raw) return undefined;
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withScheme.replace(/\/+$/, "");
+}
+
+const REST_URL = restUrl();
+const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 
 // Daily keys expire so the free tier never fills up. 90 days is far more
 // history than anyone will look at.
@@ -47,6 +58,26 @@ export function lastDays(count: number): string[] {
   return days;
 }
 
+export class UpstashError extends Error {
+  constructor(readonly status: number) {
+    super(`Upstash request failed with ${status}`);
+    this.name = "UpstashError";
+  }
+}
+
+/** What a given failure most likely means, in words Wael can act on. */
+export function upstashHint(error: unknown): string {
+  const status = error instanceof UpstashError ? error.status : 0;
+  if (status === 401 || status === 403) {
+    return "Upstash rejected the token. UPSTASH_REDIS_REST_TOKEN is probably wrong — copy the REST token again, not the database password.";
+  }
+  if (status === 404) {
+    return "Upstash did not recognise that address. UPSTASH_REDIS_REST_URL should be the REST URL from the dashboard, the https:// one — not the redis:// connection string.";
+  }
+  if (status) return `Upstash answered ${status}.`;
+  return "Could not reach Upstash at all. Check UPSTASH_REDIS_REST_URL is the https:// REST URL from the dashboard.";
+}
+
 async function pipeline(commands: unknown[][]): Promise<unknown[]> {
   const res = await fetch(`${REST_URL}/pipeline`, {
     method: "POST",
@@ -59,7 +90,11 @@ async function pipeline(commands: unknown[][]): Promise<unknown[]> {
   });
 
   if (!res.ok) {
-    throw new Error(`Upstash ${res.status}: ${await res.text()}`);
+    // The body can echo back request details, so it goes to the server log and
+    // never to the page. Only the status travels, which is what identifies the
+    // problem anyway: 401 is a bad token, 404 a bad URL.
+    console.error(`Upstash ${res.status}:`, await res.text());
+    throw new UpstashError(res.status);
   }
 
   // A pipeline can return 200 with per-command errors, so a failed counter
