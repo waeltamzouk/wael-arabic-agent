@@ -28,7 +28,9 @@ NO vector DB, NO RAG — ~20 pages fits in a prompt.
 
 Env vars, all in `.env.local` AND in Vercel project settings:
 `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `LEAD_TO_EMAIL`,
-`LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`).
+`LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`),
+`STATS_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
+`POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`.
 
 ## About me
 Strong: Framer, design, Arabic.
@@ -60,6 +62,12 @@ Explain as you go. Ask before big changes.
 - [x] Phase 5 (Sep 22): funnel visibility — Upstash counters, /stats page, live
       and verified writing. The "opened" ping still needs the Framer
       snippet re-pasting and publishing.
+- [x] W6-T4 (Sep 22): Polar buyers → Resend Audience. `/api/polar`,
+      signature verified under both of Polar's key schemes, duplicate-
+      and unsubscribe-safe, failures logged and swallowed. Tested
+      locally 17/17. NOT YET LIVE: needs the three env vars in Vercel,
+      the endpoint created in Polar, and the consent checkbox — see
+      "Polar buyers → mailing list".
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -826,6 +834,78 @@ And for Wael: start a fresh chat at the start of each week's task.
 - NOT OPTIONAL: a working unsubscribe link on every marketing email, and
   check what consent Polar's checkout actually captured. "They bought
   something" is not blanket permission to market to them.
+- BUILT Sep 22 (W6-T4): `app/api/polar/route.ts`, `lib/polar-webhook.ts`,
+  `lib/mailing-list.ts`. New env vars, `.env.local` AND Vercel:
+  `POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`, and the two optional
+  `POLAR_CONSENT_FIELD` / `POLAR_CONSENT_MODE`.
+- THE CONSENT ANSWER, checked against Polar's own OpenAPI schema
+  (2026-04) and not guessed: POLAR'S CHECKOUT CAPTURES NO MARKETING
+  CONSENT AT ALL. "marketing", "newsletter", "opt_in" and "mailing"
+  return ZERO hits across the whole API; the only "consent" in it is an
+  OAuth screen. Polar collects what it needs to take the money. So
+  there is nothing to read, and a purchase on its own subscribes NOBODY.
+- WHAT WAEL HAS TO DO, and until he does it this endpoint verifies,
+  logs and adds nobody — which is the correct behaviour, not a bug:
+  Polar dashboard → Custom Fields → new field, type CHECKBOX, slug
+  `marketing_consent`, then attach it to each template product. Do NOT
+  mark it required: a compulsory consent box is not consent, and it
+  costs sales. The tick arrives as `custom_field_data.marketing_consent`.
+- The escape hatch, and it is a legal decision not a config tweak:
+  `POLAR_CONSENT_MODE=soft-optin` treats the purchase itself as the
+  basis. That is real (GDPR/PECR soft opt-in covers marketing your OWN
+  similar products to an existing customer) but ONLY while every email
+  carries a working unsubscribe link. It is off by default and shouts
+  in the log every time it fires. An explicitly unticked box still
+  means no, in either mode.
+- THE UNSUBSCRIBE LINK, and this is the part that silently breaks:
+  Resend does NOT add one for you. The broadcast body must contain
+  `{{{RESEND_UNSUBSCRIBE_URL}}}` — THREE braces — and the broadcast must
+  have the AUDIENCE attached. With no audience attached that variable
+  resolves to an EMPTY STRING: the email sends, looks perfect, and the
+  unsubscribe link is a dead `href=""`. Nothing warns you. Send a test
+  to yourself and CLICK the link before every announcement.
+- GOTCHA, measured against the live Resend API on Sep 22, and it is the
+  reason `addBuyer` looks the contact up before creating it:
+  `contacts.create` on an email already in the audience does NOT error.
+  It upserts, and it RESETS `unsubscribed` to false. So the obvious
+  one-line version of this feature resubscribes anyone who ever
+  unsubscribed, on their next purchase, silently. Verified: contact
+  unsubscribed → `create` → `unsubscribed: false`. The endpoint looks
+  first and leaves an existing contact alone in ANY state, so an
+  unsubscribe stays theirs. Do not "simplify" that away.
+- Polar has TWO webhook key schemes split by when the secret was made
+  (before/after 8 Sep 2026): the newer one base64-DECODES the secret,
+  the older one uses its raw UTF-8 bytes. The symptom of picking wrong
+  is 403 on every delivery, indistinguishable from a wrong secret.
+  `verifyPolarSignature` tries both, like Polar's own SDK.
+- Subscribe the endpoint to BOTH `order.created` and `order.paid` in
+  Polar. `order.created` fires when the invoice is generated, which for
+  card payments is BEFORE the money moves — `status` is `pending` there.
+  Whichever event arrives paid does the work; the other is a no-op. So
+  a failed payment never lands on the mailing list.
+- Status codes are deliberate: 403 for a bad signature (never
+  swallowed), 400 for junk, 500 only when `POLAR_WEBHOOK_SECRET` is
+  missing, and 200 for EVERYTHING else including Resend failing. Polar
+  retries up to 10 times on a non-2xx and DISABLES an endpoint after 10
+  consecutive failures, so answering 500 because Resend blinked would
+  eventually switch the integration off with no warning.
+  THE COST OF THAT: a transient Resend error loses that one buyer
+  instead of being retried. The log line carries their address. If it
+  ever happens twice, return 500 for `failed` ONLY — never for a
+  refused consent, which would retry forever.
+- Counters on /stats: `buyer_added`, `buyer_duplicate`,
+  `buyer_no_consent`, `buyer_failed`, `polar_refused`.
+- HOW IT WAS TESTED without a Polar account, and the script is worth
+  rebuilding: sign requests with `node:crypto` exactly as Polar does and
+  POST them at `localhost:3000/api/polar`. 17/17 — both key schemes,
+  wrong secret, body tampered after signing, missing headers, a 10
+  minute old timestamp (replay), a signature bound to a different
+  webhook-id, two signatures with only the second valid, junk JSON, a
+  70kB body, an unhandled event, a pending order, a missing email, and
+  all three consent answers. The duplicate and unsubscribe paths ran
+  against the REAL Resend API and the test contacts were deleted after.
+  The only step never exercised end to end is a delivery from Polar
+  itself, which needs the dashboard.
 
 ## Cost and the API balance (Sep 22)
 - THE AGENT WENT DOWN on Sep 22: the Anthropic credit balance hit zero

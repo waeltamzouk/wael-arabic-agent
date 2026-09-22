@@ -203,6 +203,11 @@ export async function readTotals(
 
 // Every metric the app writes, in the order the funnel happens. Kept here so
 // the stats page and the writers cannot drift apart.
+//
+// The `buyer_*` and `polar_refused` counters are NOT part of the chat funnel —
+// they come from `/api/polar`, which no visitor ever touches. They share this
+// list because they share the storage and the page, and a second mechanism for
+// four counters would be the thing that drifts.
 export const METRICS = [
   "opened",
   "started",
@@ -215,4 +220,9 @@ export const METRICS = [
   "blocked_origin",
   "blocked_rate",
   "blocked_size",
+  "buyer_added",
+  "buyer_duplicate",
+  "buyer_no_consent",
+  "buyer_failed",
+  "polar_refused",
 ] as const;

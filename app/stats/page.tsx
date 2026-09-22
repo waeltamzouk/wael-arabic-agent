@@ -36,6 +36,11 @@ const LABELS: Record<string, string> = {
   blocked_origin: "Blocked: bad origin",
   blocked_rate: "Blocked: rate limit",
   blocked_size: "Blocked: too long",
+  buyer_added: "Buyers added to the list",
+  buyer_duplicate: "Buyers already on the list",
+  buyer_no_consent: "Buyers who did not consent",
+  buyer_failed: "Buyers Resend refused",
+  polar_refused: "Blocked: bad Polar signature",
 };
 
 const FUNNEL = ["opened", "started", "engaged", "qualified"] as const;
