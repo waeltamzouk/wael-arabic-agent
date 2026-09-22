@@ -890,6 +890,29 @@ And for Wael: start a fresh chat at the start of each week's task.
   `marketing_consent`, then attach it to each template product. Do NOT
   mark it required: a compulsory consent box is not consent, and it
   costs sales. The tick arrives as `custom_field_data.marketing_consent`.
+- DECIDED Sep 22, REVERSING the checkbox above: Wael wants every buyer on
+  the list, ticked or not. The checkbox is therefore REMOVED from the
+  checkout and `POLAR_CONSENT_MODE=soft-optin` is switched on in Vercel.
+  WHY REMOVE IT RATHER THAN IGNORE IT: a box that is shown and then
+  overridden is the worst of both worlds. The people who untick it are
+  exactly the ones who press "spam" instead of "unsubscribe", and Resend
+  shares sending reputation across the account — enough complaints and the
+  LEAD NOTIFICATION emails start landing in spam too. The mailing list
+  would cost Wael the thing the whole app exists for.
+  (Claude's first choice was an opt-out box — "Don't email me about new
+  templates", unticked by default — which keeps a refusal on offer and is
+  the stronger basis. Wael chose removal. Both get every passive buyer.)
+- UNDER SOFT OPT-IN THE UNSUBSCRIBE LINK IS NOT PAPERWORK, it is the only
+  thing holding the lawful basis up. No box was ticked, so the opt-out in
+  every email IS the consent mechanism. If a broadcast ever goes out with
+  a dead unsubscribe link there is nothing left to stand on. See the
+  `{{{RESEND_UNSUBSCRIBE_URL}}}` trap below — it fails SILENTLY.
+- Say in the first broadcast why they are getting it ("you downloaded
+  X from waelwebdesign.com"). Unprompted email from a name people do not
+  recognise is what gets marked as spam, not the content.
+- The safety net survives the change: an explicit unticked box still means
+  NO in soft-optin mode. Verified. So if the field is ever re-attached to
+  a product, a buyer's refusal is honoured rather than overridden.
 - The escape hatch, and it is a legal decision not a config tweak:
   `POLAR_CONSENT_MODE=soft-optin` treats the purchase itself as the
   basis. That is real (GDPR/PECR soft opt-in covers marketing your OWN
