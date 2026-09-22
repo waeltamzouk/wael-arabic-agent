@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt";
 import { sendLead, type Lead } from "@/lib/send-lead";
+import { depthMetric, record } from "@/lib/stats";
 import {
   checkSize,
   clientIp,
@@ -102,8 +103,9 @@ function json(req: NextRequest, body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: corsHeaders(req) });
 }
 
-function refuse(req: NextRequest, failure: GuardFailure) {
+function refuse(req: NextRequest, failure: GuardFailure, metric: string) {
   console.warn("Blocked /api/chat request:", failure.error);
+  record(metric);
   return json(req, { error: failure.error, notice: failure.notice }, failure.status);
 }
 
@@ -179,11 +181,11 @@ export async function POST(req: NextRequest) {
       status: 403,
       error: `Origin not allowed: ${req.headers.get("origin") ?? "(none)"}.`,
       notice: "غير مصرح.",
-    });
+    }, "blocked_origin");
   }
 
   const limited = rateLimit(clientIp(req));
-  if (limited) return refuse(req, limited);
+  if (limited) return refuse(req, limited, "blocked_rate");
 
   let body: unknown;
 
@@ -209,7 +211,7 @@ export async function POST(req: NextRequest) {
   // Size caps last: they need a parsed, valid body, and they are what stop one
   // oversized conversation costing a fortune.
   const oversized = checkSize(messages);
-  if (oversized) return refuse(req, oversized);
+  if (oversized) return refuse(req, oversized, "blocked_size");
 
   try {
     // Computed ONCE and used for BOTH calls in the tool loop. The second call's
@@ -217,6 +219,18 @@ export async function POST(req: NextRequest) {
     // wrong message and could flip the language mid-answer.
     const language = languageOf(messages);
     const system = systemFor(language);
+
+    // Funnel milestones. `depthMetric` only returns a value at exact lengths a
+    // conversation passes through once, so this counts each conversation once
+    // per milestone without storing anything about who it was. Language is
+    // recorded only at the first message, so one conversation counts once.
+    const milestone = depthMetric(messages.length);
+    if (milestone) {
+      record(
+        milestone,
+        ...(milestone === "started" ? [`lang_${language}`] : [])
+      );
+    }
 
     const first = await anthropic.messages.create({
       model: MODEL,
@@ -237,6 +251,11 @@ export async function POST(req: NextRequest) {
 
       if (isUsableLead(toolUse.input)) {
         sent = await sendLead(toolUse.input);
+        if (sent) {
+          record(
+            toolUse.input.type === "template" ? "lead_template" : "lead_project"
+          );
+        }
       } else {
         console.error("save_lead called without a name or phone:", toolUse.input);
       }

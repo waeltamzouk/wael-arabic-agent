@@ -57,7 +57,8 @@ Explain as you go. Ask before big changes.
       end on waelwebdesign.com. Three real leads delivered to the inbox:
       Arabic project, Arabic template (from `/template/nabdh`), and an
       ENGLISH project lead. All fields populated, `type` correct on both.
-- [ ] Phase 5: HubSpot
+- [ ] Phase 5: funnel visibility (built Sep 22, needs Upstash keys)
+- [ ] Phase 6: HubSpot
 
 ## Repo notes
 - Remote: `git@github.com:waeltamzouk/wael-arabic-agent.git` (SSH)
@@ -675,3 +676,64 @@ And for Wael: start a fresh chat at the start of each week's task.
   so this may be the automation layer rather than `handleKeyDown`. Wael
   should press Enter once by hand — it is how most people send a chat
   message.
+
+## Funnel visibility (Sep 22)
+- WHY THIS BEFORE HUBSPOT: the lead email only tells you about people who
+  FINISH. Someone who opens the bubble and leaves at question two is
+  invisible, and that is most people. A CRM organises lead volume that
+  does not exist yet; this is what tells you whether there is any.
+- ZERO new dependencies. Upstash has a plain REST API, so `lib/stats.ts`
+  uses `fetch`. The project stays on three runtime deps. Upstash was
+  already named in CLAUDE.md as the rate limiter's upgrade path, so it
+  is the service this project had already picked.
+- NO session IDs, NO cookies, NO visitor tracking, and nothing personal
+  is stored — counts only. No names, phones or message text ever reach
+  Upstash.
+- THE TRICK that makes it work without session tracking: the widget
+  re-sends the WHOLE history every time, so `messages.length` IS the
+  conversation depth, and it is always ODD (the visitor's new line is
+  last). So a conversation passes through 1, 3, 5, 7 … exactly once
+  each, and a milestone is counted by testing for EXACT EQUALITY with a
+  length: 1 = started, 5 = engaged, 11 = qualified. Incrementing on
+  every request instead would count one 7-turn conversation seven times.
+  Verified: a 3-message request emits NO milestone.
+- `opened` is the one step the API cannot see, because someone who never
+  types never sends a request. It is a `sendBeacon` ping to
+  `/api/event?name=opened` from the Framer snippet. The event name is a
+  QUERY PARAM against a fixed allowlist, not a JSON body, so the browser
+  treats it as a simple request and sends NO CORS preflight — which is
+  what lets it fire while the page is being navigated away from.
+- `opened` fires ONCE PER TAB, on a real launcher click, guarded by
+  `wael-chat:counted` in sessionStorage. Deliberately NOT on the
+  auto-reopen restore: that is the same visitor landing on the next
+  page, and counting it would turn one curious person into five.
+- `/api/event` shares the chat route's rate-limit budget on purpose, so
+  it can never become the cheap way to burn someone's quota.
+- Counters never block a reply: `record()` writes inside `after()` from
+  `next/server`, and a failed counter is logged and swallowed.
+- The page is `/stats?key=…`, guarded by `STATS_KEY`, `noindex`, and
+  `force-dynamic` so it is never cached. A wrong or missing key renders
+  "Not found." and nothing else.
+- IT WORKS WITHOUT UPSTASH: every event is also `console.log`ed as
+  `[funnel] …`, so the Vercel runtime logs show it even with no keys
+  set, and the stats page says so instead of showing zeros.
+- SETUP, still to do: create a free Upstash Redis database, then add
+  `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `STATS_KEY`
+  to the Vercel project settings and redeploy. `STATS_KEY` is already in
+  `.env.local` for local use.
+- GOTCHA, and it is the WIDTH TWIN of the scroll bug above: `body` is a
+  flex column, so `main` is a flex item, and a flex item defaults to
+  `min-width: auto` — it refuses to shrink below its content. The
+  by-day table is `whitespace-nowrap`, so its min-content width pushed
+  `main` to 573px inside a 436px viewport and the whole PAGE scrolled
+  sideways. Under the root layout's `dir="rtl"` that is worse than it
+  sounds: the page opens scrolled to the RIGHT and the content looks cut
+  off. Fix is `min-w-0 w-full` on `main`. Measured before and after:
+  `horizontalOverflow` 137 → 0. Same lesson as the scroll bug — flex
+  items need an explicit min-* 0 to ever shrink.
+- TESTING TIP: the Upstash path was proved end to end WITHOUT an Upstash
+  account by running a ~20-line local stand-in that speaks the same REST
+  pipeline protocol (INCR/EXPIRE/GET, `[{"result":…}]`) and pointing
+  `UPSTASH_REDIS_REST_URL` at it. Lives in the scratchpad, not the repo.
+  A pipeline read is exactly `days × metrics + metrics` commands, which
+  is how you can tell a read happened from the command count alone.
