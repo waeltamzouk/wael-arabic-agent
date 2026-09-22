@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ContactForm from "./ContactForm";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
+};
+
+// The contact form's state. "pending" means it is on screen waiting to be
+// filled; "done" means it has been sent and must never come back on its own.
+type LeadState = {
+  status: "pending" | "done";
+  language: "ar" | "en";
+  notes: Record<string, unknown>;
 };
 
 const WELCOME =
@@ -17,6 +26,21 @@ const GENERIC_ERROR = "تعذر الاتصال بالمساعد. حاول مرة
 // with no iframe — then it must be the full https://… Vercel URL, and the
 // CORS allowlist in lib/guard.ts is what lets it through.
 const CHAT_ENDPOINT = process.env.NEXT_PUBLIC_CHAT_API_URL || "/api/chat";
+
+// Derived rather than given its own env var: the two routes always live on the
+// same origin, so a second variable could only ever be set wrong. This handles
+// both "/api/chat" and a full "https://….vercel.app/api/chat".
+const LEAD_ENDPOINT = CHAT_ENDPOINT.replace(/\/api\/chat$/, "/api/lead");
+
+// What the assistant says once the form has been sent. It is pushed into the
+// conversation as a REAL assistant message, not a separate success card, and
+// that is load-bearing: the whole history goes back to Claude on the next
+// turn, so this is how Claude knows the details have already arrived and does
+// not ask for them a second time.
+const LEAD_SENT_MESSAGE = {
+  ar: "تم استلام بياناتك وإرسالها لوائل. بيتواصل معك قريباً.",
+  en: "Your details have been sent to Wael. He will be in touch shortly.",
+} as const;
 
 // Tells the Framer launcher to close the panel. The X lives inside the iframe,
 // but the panel is shown and hidden by the parent page, so it has to ask.
@@ -35,6 +59,11 @@ type Props = {
 // a shared computer never shows the last person's conversation.
 const STORAGE_KEY = "wael-chat:messages";
 
+// A SEPARATE key, not a new field on the messages. Conversations saved by the
+// previous version still load unchanged, and `isMessage` stays the one shape
+// check for the list.
+const LEAD_KEY = "wael-chat:lead";
+
 function isMessage(value: unknown): value is Message {
   return (
     typeof value === "object" &&
@@ -43,6 +72,29 @@ function isMessage(value: unknown): value is Message {
       (value as Message).role === "assistant") &&
     typeof (value as Message).content === "string"
   );
+}
+
+function isLeadState(value: unknown): value is LeadState {
+  const lead = value as LeadState | null;
+  return (
+    typeof lead === "object" &&
+    lead !== null &&
+    (lead.status === "pending" || lead.status === "done") &&
+    (lead.language === "ar" || lead.language === "en") &&
+    typeof lead.notes === "object" &&
+    lead.notes !== null
+  );
+}
+
+function loadLead(): LeadState | null {
+  try {
+    const raw = sessionStorage.getItem(LEAD_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isLeadState(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function loadMessages(): Message[] {
@@ -64,6 +116,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lead, setLead] = useState<LeadState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,7 +141,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [messages, loading, error]);
+  }, [messages, loading, error, lead]);
 
   // Restore after mount, not in a useState initializer: the server renders an
   // empty list, so reading storage during the first render is a hydration
@@ -96,6 +149,8 @@ export default function ChatWidget({ variant = "card" }: Props) {
   useEffect(() => {
     const restored = loadMessages();
     if (restored.length) setMessages(restored);
+    const restoredLead = loadLead();
+    if (restoredLead) setLead(restoredLead);
   }, []);
 
   useEffect(() => {
@@ -111,6 +166,18 @@ export default function ChatWidget({ variant = "card" }: Props) {
     }
   }, [messages]);
 
+  useEffect(() => {
+    try {
+      // Unlike the message list, null is a real state worth writing: it is how
+      // a dismissed form stays dismissed across a page change.
+      if (lead) sessionStorage.setItem(LEAD_KEY, JSON.stringify(lead));
+      else sessionStorage.removeItem(LEAD_KEY);
+    } catch {
+      // Storage blocked. The form still works, it just will not survive a
+      // same-tab navigation.
+    }
+  }, [lead]);
+
   async function sendHistory(history: Message[]) {
     setError(null);
     setLoading(true);
@@ -122,8 +189,12 @@ export default function ChatWidget({ variant = "card" }: Props) {
         body: JSON.stringify({ messages: history }),
       });
 
-      const data: { reply?: string; error?: string; notice?: string } =
-        await res.json();
+      const data: {
+        reply?: string;
+        error?: string;
+        notice?: string;
+        contactForm?: { language: "ar" | "en"; notes: Record<string, unknown> };
+      } = await res.json();
 
       if (!res.ok || !data.reply) {
         // `notice` is written for the visitor and is safe to show. `error` is
@@ -132,6 +203,11 @@ export default function ChatWidget({ variant = "card" }: Props) {
       }
 
       setMessages([...history, { role: "assistant", content: data.reply }]);
+
+      // Only ever set by the route, and only on the turn Claude asked for it.
+      if (data.contactForm) {
+        setLead({ status: "pending", ...data.contactForm });
+      }
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : GENERIC_ERROR);
     } finally {
@@ -155,6 +231,17 @@ export default function ChatWidget({ variant = "card" }: Props) {
       e.preventDefault();
       handleSubmit(e);
     }
+  }
+
+  function handleLeadSent() {
+    if (!lead) return;
+    // Pushed as a normal assistant message so it is saved, restored and sent
+    // back to Claude like any other turn — see LEAD_SENT_MESSAGE.
+    setMessages((current) => [
+      ...current,
+      { role: "assistant", content: LEAD_SENT_MESSAGE[lead.language] },
+    ]);
+    setLead({ ...lead, status: "done" });
   }
 
   const canRetry =
@@ -230,6 +317,19 @@ export default function ChatWidget({ variant = "card" }: Props) {
             {m.content}
           </Bubble>
         ))}
+
+        {lead?.status === "pending" && !loading && (
+          <ContactForm
+            // Remounts on a fresh request, so a form offered a second time
+            // never shows the last attempt's half-filled fields.
+            key={JSON.stringify(lead.notes)}
+            language={lead.language}
+            notes={lead.notes}
+            endpoint={LEAD_ENDPOINT}
+            onSent={handleLeadSent}
+            onDismiss={() => setLead(null)}
+          />
+        )}
 
         {loading && (
           <div className="self-start rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">

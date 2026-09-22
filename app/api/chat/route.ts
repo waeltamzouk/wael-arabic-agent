@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt";
-import { sendLead, type Lead } from "@/lib/send-lead";
 import { depthMetric, record } from "@/lib/stats";
 import {
   checkSize,
@@ -17,24 +16,41 @@ const anthropic = new Anthropic();
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 1024;
 
-// Said back to the visitor if Claude calls the tool again instead of writing
-// text. Keyed by language: this fires at the exact moment someone has just
-// handed over their phone number, and answering an English visitor in Arabic
-// there is the worst possible place to slip.
-const LEAD_SENT_REPLY = {
-  ar: "تم تسجيل بياناتك. وائل بيتواصل معك قريباً.",
-  en: "Your details have been saved. Wael will be in touch shortly.",
+// Said back to the visitor if Claude produces no text at all. Keyed by
+// language: the form case fires at the exact moment someone is being asked for
+// a phone number, and answering an English visitor in Arabic there is the
+// worst possible place to slip.
+const FALLBACK_REPLY = {
+  form: {
+    ar: "عبّي بياناتك تحت وأرسلها، ووائل بيتواصل معك قريباً.",
+    en: "Fill in your details below and send them — Wael will be in touch shortly.",
+  },
+  plain: {
+    ar: "تعذر إنشاء الرد. حاول مرة أخرى.",
+    en: "The reply could not be generated. Please try again.",
+  },
 } as const;
 
-const LEAD_TOOL: Anthropic.Tool = {
-  name: "save_lead",
+// NOT a "save the lead" tool any more. Claude no longer handles the name or
+// the phone number at all — it decides WHEN to ask, and the visitor types the
+// answer into a real form that posts straight to /api/lead.
+//
+// Why: a number copied out of a chat sentence arrives however it was typed
+// ("0551234567", two numbers at once, "call me after 5pm"), and then nothing
+// downstream can be sure which country it is from. A form with a country
+// dropdown removes the guess entirely. See lib/whatsapp.ts for what the
+// guessing used to cost.
+//
+// The fields here are the notes Claude DID gather from the conversation. They
+// ride along with the form and come back with it, so the lead email still has
+// the budget and the timeline in it.
+const CONTACT_TOOL: Anthropic.Tool = {
+  name: "request_contact",
   description:
-    "Send the visitor's details to Wael by email. Call this once, only after the visitor has given BOTH their name and phone number. Fill every field you can from the conversation; leave a field out if the visitor never answered it.",
+    "Show the visitor a short form asking for their name and phone number. Call this once, at the moment the visitor should be asked for their contact details. Do NOT ask for a name or a phone number in your own words — this form is the only way to collect them. Fill every other field you can from the conversation; leave a field out if the visitor never answered it.",
   input_schema: {
     type: "object",
     properties: {
-      name: { type: "string", description: "Visitor's name." },
-      phone: { type: "string", description: "Visitor's phone number." },
       type: {
         type: "string",
         enum: ["project", "template"],
@@ -60,7 +76,7 @@ const LEAD_TOOL: Anthropic.Tool = {
         description: "How ready to buy the visitor seems.",
       },
     },
-    required: ["name", "phone", "type"],
+    required: ["type"],
   },
 };
 
@@ -199,19 +215,6 @@ function systemFor(language: "ar" | "en") {
   );
 }
 
-// `required` in the tool schema is a hint to Claude, not a guarantee. Nothing
-// downstream checks, so a malformed call would email a lead of dashes — which
-// looks like a real lead in the inbox and is worse than no email at all.
-function isUsableLead(input: unknown): input is Lead {
-  const lead = input as Lead | null;
-  return (
-    typeof lead?.name === "string" &&
-    lead.name.trim().length > 0 &&
-    typeof lead?.phone === "string" &&
-    lead.phone.trim().length > 0
-  );
-}
-
 export async function POST(req: NextRequest) {
   // Cheapest check first, and the only one that runs before the body is read.
   if (!isAllowedOrigin(req)) {
@@ -274,35 +277,25 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system,
-      tools: [LEAD_TOOL],
+      tools: [CONTACT_TOOL],
       messages,
     });
 
     let final = first;
 
-    // Claude asked for the lead to be emailed. Send it, tell Claude it worked,
-    // then let Claude write the reply the visitor actually sees.
+    // Claude decided it is time to ask for contact details. Nothing is emailed
+    // here — the route tells the widget to show the form, and the form posts
+    // to /api/lead when the visitor sends it.
     const toolUse = first.content.find((block) => block.type === "tool_use");
 
     if (toolUse) {
-      let sent = false;
-
-      if (isUsableLead(toolUse.input)) {
-        sent = await sendLead(toolUse.input);
-        if (sent) {
-          record(
-            toolUse.input.type === "template" ? "lead_template" : "lead_project"
-          );
-        }
-      } else {
-        console.error("save_lead called without a name or phone:", toolUse.input);
-      }
+      record("form_shown");
 
       final = await anthropic.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system,
-        tools: [LEAD_TOOL],
+        tools: [CONTACT_TOOL],
         // `tools` must stay — the API rejects a conversation containing
         // tool_use blocks when it is missing. But this call's only job is to
         // write the sentence the visitor reads, so forbid a SECOND tool call:
@@ -319,9 +312,10 @@ export async function POST(req: NextRequest) {
               {
                 type: "tool_result",
                 tool_use_id: toolUse.id,
-                content: sent
-                  ? "Lead sent to Wael."
-                  : "Lead could not be sent.",
+                // Claude's only remaining job is the sentence above the
+                // form, so tell it exactly what the visitor can now see.
+                content:
+                  "The contact form is now shown to the visitor, below your reply. Write one short sentence asking them to fill it in. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.",
               },
             ],
           },
@@ -337,7 +331,16 @@ export async function POST(req: NextRequest) {
     );
 
     // The widget throws on an empty reply, so never return one.
-    return json(req, { reply: reply || LEAD_SENT_REPLY[language] });
+    return json(req, {
+      reply: reply || FALLBACK_REPLY[toolUse ? "form" : "plain"][language],
+      // Present ONLY when the form should appear. `notes` is what Claude
+      // gathered from the conversation; it rides out to the browser and comes
+      // back with the form, and /api/lead re-checks every field of it, because
+      // by then it has been through a stranger's browser.
+      ...(toolUse
+        ? { contactForm: { language, notes: toolUse.input } }
+        : {}),
+    });
   } catch (error) {
     console.error("Anthropic API error:", error);
 

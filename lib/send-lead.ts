@@ -4,6 +4,9 @@ import { whatsappLink } from "./whatsapp";
 export type Lead = {
   name: string;
   phone: string;
+  // Optional on purpose: the form marks it optional, because a third required
+  // field costs more leads than the addresses are worth.
+  email?: string;
   // "project" = wants a new site built. "template" = wants a template customized.
   type?: "project" | "template";
   business?: string;
@@ -45,6 +48,9 @@ export async function sendLead(lead: Lead) {
     line("Name", lead.name),
     line("Phone", lead.phone),
     whatsappLine(lead.phone),
+    // Omitted entirely rather than shown as a dash: most leads will not have
+    // one, and nine "Email: —" lines a week is just noise in the inbox.
+    ...(lead.email?.trim() ? [line("Email", lead.email)] : []),
     line("Business", lead.business),
     line("Project", lead.project),
     line("Budget", lead.budget),

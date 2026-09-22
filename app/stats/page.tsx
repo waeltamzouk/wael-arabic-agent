@@ -29,6 +29,8 @@ const LABELS: Record<string, string> = {
   started: "Sent a first message",
   engaged: "Got 3 exchanges in",
   qualified: "Got 6 exchanges in",
+  form_shown: "Shown the contact form",
+  form_submitted: "Sent the contact form",
   lead_project: "Project leads",
   lead_template: "Template leads",
   lang_ar: "Arabic",
@@ -43,7 +45,17 @@ const LABELS: Record<string, string> = {
   polar_refused: "Blocked: bad signature",
 };
 
-const FUNNEL = ["opened", "started", "engaged", "qualified"] as const;
+const FUNNEL = [
+  "opened",
+  "started",
+  "engaged",
+  "qualified",
+  // The form's own two steps sit INSIDE the funnel rather than in the Totals
+  // grid, because the gap between them is a drop-off like any other — and the
+  // most actionable one on the page, since it is the last step before a lead.
+  "form_shown",
+  "form_submitted",
+] as const;
 
 // The Polar webhook's counters. A SEPARATE list from FUNNEL and from the
 // Totals grid below, because these describe buyers who never touched the chat.

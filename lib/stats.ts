@@ -213,6 +213,11 @@ export const METRICS = [
   "started",
   "engaged",
   "qualified",
+  // The form's own funnel: how many people are SHOWN the contact form versus
+  // how many actually send it. The gap between these two is the number that
+  // tells Wael whether the form is working or scaring people off.
+  "form_shown",
+  "form_submitted",
   "lead_project",
   "lead_template",
   "lang_ar",

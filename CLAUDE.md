@@ -71,6 +71,11 @@ Explain as you go. Ask before big changes.
       plus 15/15 on routing. The unsubscribe loop is CLOSED too: a real
       broadcast resolved a real unsubscribe URL, the click registered,
       and two further purchases did NOT put him back on either list.
+- [x] W6-T5 (Sep 23): contact form inside the chat. `request_contact`
+      replaces `save_lead`, `/api/lead` emails the lead, country dropdown so
+      every number carries its country. Proved against stand-ins and in the
+      browser; the one step left is a LIVE conversation, which needs the
+      Anthropic balance topped up first.
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -840,6 +845,91 @@ And for Wael: start a fresh chat at the start of each week's task.
 - Tested with a 35-case table plus the rendered email body, both in the
   scratchpad, with Resend's transport stubbed so no mail was sent. Same
   trick as the tool-loop test above: stub the send, print the payload.
+
+## The contact form (Sep 23)
+- DECIDED (Wael): the name and phone are now typed into a FORM inside the
+  chat, not written as chat messages. Claude still decides WHEN to ask — all
+  the "when to ask / never ask" rules are unchanged — but the asking itself is
+  a form, and Claude never handles a phone number again.
+- WHY, and it is the same problem the WhatsApp link section above is about: a
+  number copied out of a sentence arrives with no country attached, and
+  `0551234567` is a real mobile in Saudi AND the UAE. A country dropdown turns
+  a guess into a fact. Every number now reaches `sendLead` as `+966551234567`,
+  so the wa.me link works every time instead of sometimes.
+- Three more things it buys, in order of how much they matter: it cannot be
+  skipped by the model forgetting to call the tool; it is 2 fewer API round
+  trips per lead; and a proper field at the moment you ask for a phone number
+  reads as more trustworthy than a chat line.
+- FIELDS: name, phone + country, and EMAIL MARKED OPTIONAL. This narrowly
+  amends "name + phone ONLY" in Business decisions (Sep 14) — that rule was
+  about REQUIRED fields and still holds. Claude argued for dropping email
+  entirely; Wael chose optional, which is the middle path and blocks nobody.
+- `save_lead` IS GONE, replaced by `request_contact`, which takes the
+  conversation notes (`type`, `business`, `budget`, …) and NO name or phone.
+  Capturing a lead from chat text was REMOVED, not kept as a fallback: two
+  paths to the same email is how duplicate leads happen. If a visitor types
+  their number into the chat anyway, the prompt tells Claude not to rely on
+  it and to show the form.
+- THE NEW ROUTE, `app/api/lead/route.ts`, is guarded EXACTLY like /api/chat
+  and shares the same rate-limit budget. It sends email on a public origin,
+  so an unguarded version is an inbox flood waiting to happen.
+- ONE definition of "a usable number", and it is `whatsappLink()`: /api/lead
+  refuses anything that cannot be turned into a wa.me link, and says so to the
+  visitor while they are still there to fix it. Better than Wael finding out
+  days later that the number is dead.
+- `LEAD_DEFAULT_COUNTRY_CODE` (set to 966 on Sep 23) is now effectively
+  REDUNDANT — every number arrives with its country already on it. Kept
+  because it costs nothing and still covers any lead created another way.
+- The notes ride out to the browser with the form and come back with it, so
+  /api/lead re-checks every field: keys are an allowlist, values are cut to
+  300 chars, and the country must be one the dropdown actually offers.
+- HOW CLAUDE KNOWS IT ALREADY ASKED: on success the widget pushes a real
+  assistant message ("تم استلام بياناتك…") into the conversation. It is not
+  decoration — the whole history goes back on the next turn, so that sentence
+  is what stops Claude asking a second time. Same mechanism as the old
+  confirmation line in Phase 4.
+- The form survives a page change like the conversation does, in its OWN
+  sessionStorage key `wael-chat:lead` (`pending` / `done`). A separate key on
+  purpose: conversations saved by the previous version still load.
+- GOTCHA, and it is a Tailwind trap worth remembering: a shared class string
+  with `w-full` in it, plus `w-auto` on the one element that must be narrow,
+  DOES NOT WORK. Both classes land on the element and the stylesheet order
+  decides, not the order you wrote them. `w-full` won, the country select
+  filled the row and the phone input collapsed to nothing. Keep width OUT of
+  a shared class string and set it per field.
+- GOTCHA: the root layout is `dir="rtl"`, so the ENGLISH form came out
+  right-aligned with the country code on the wrong side. The bubbles get away
+  with `dir="auto"` because they are one run of text; a form is a layout, so
+  it needs an explicit `dir` keyed to the language.
+- New counters `form_shown` and `form_submitted` sit INSIDE the funnel table
+  on /stats, not in the Totals grid — the gap between them is the last
+  drop-off before a lead, and the most actionable number on the page.
+- VERIFIED Sep 23, and note WHAT COULD NOT BE: the Anthropic balance is still
+  at zero (see "Cost and the API balance"), so no live conversation was
+  possible. Everything else was proved:
+  - 16/16 on /api/lead (both countries, optional email, every refusal, the
+    English notices, capped and allowlisted notes), Resend stubbed.
+  - 13/13 on the chat route's handoff, run against a LOCAL STAND-IN that
+    speaks the Messages API — `ANTHROPIC_BASE_URL` pointed at a 20-line
+    server. Same trick as the Upstash stand-in. It proves the tool swap, the
+    notes reaching the widget, the language, and that /api/chat can no longer
+    email anything (a throwing Resend stub never fired).
+  - 6/6 that the two new counters actually RENDER, against an Upstash
+    stand-in. CLAUDE.md's own warning applies: being in METRICS and LABELS is
+    not the same as being on the page.
+  - In the browser at 380x600: form renders, `pageOverflow: 0`, submitted for
+    real, 200 from /api/lead, `[funnel] form_submitted lead_project`, the
+    confirmation replaced the form, and a reload did NOT bring it back.
+    Dismiss clears it permanently and leaves the composer usable.
+  - ONE REAL EMAIL was sent, deliberately addressed to Wael's own WhatsApp
+    number (+90 537 763 44 37) so the wa.me link in it is safe to tap.
+- STILL TO DO BY HAND: a live conversation once the Anthropic balance is
+  topped up, to watch Claude actually decide to call `request_contact`. That
+  is the one step no stand-in can prove.
+- The eslint error in `ChatWidget.tsx` (`react-hooks/set-state-in-effect`) is
+  PRE-EXISTING and still one error. The restore must happen in an effect —
+  reading sessionStorage during the first render is a hydration mismatch —
+  so the rule is wrong here, and the lead restore sits in the same effect.
 
 ## The two sites are SEPARATE (Sep 22)
 - `waelwebdesign.com` — Arabic, services + six templates, own clients.
