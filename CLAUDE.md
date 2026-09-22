@@ -996,6 +996,23 @@ And for Wael: start a fresh chat at the start of each week's task.
   instead of being retried. The log line carries their address. If it
   ever happens twice, return 500 for `failed` ONLY — never for a
   refused consent, which would retry forever.
+- EVERY CONTACT CARRIES `language`, `template` and `source`, added Sep 22.
+  The three keys are defined account-wide in Resend (Audience →
+  Properties); a key that is NOT defined there is silently ignored on
+  write, so check the contact after changing them.
+  WHY IT HAD TO BE DONE AT THE START: which template someone bought
+  exists only inside the webhook being handled at that moment. Save the
+  contact without it and the fact is gone for good — there is no later
+  job that can reconstruct it. It is what turns "everyone who bought a
+  blog template" into a segment Wael builds himself in the Resend UI,
+  instead of a code change every time he wants a different slice.
+- WHAT IS AND IS NOT ON THESE LISTS: only Polar buyers. The chat agent
+  does NOT add anyone to an audience — `sendLead` sends an EMAIL to
+  `LEAD_TO_EMAIL` and touches no list at all. So "General" holds Arabic
+  template BUYERS and nothing else. When Phase 6 lands, the English
+  agent's 30%-code emails need their OWN list; do not let them share one
+  with buyers, because "bought a template" and "wanted a discount code"
+  are different people wanting different emails.
 - Counters on /stats, in their own "Template buyers" section because they
   are not chat-funnel numbers: `buyer_added`, `buyer_duplicate`,
   `buyer_no_consent`, `buyer_failed`, `polar_refused`.

@@ -24,6 +24,8 @@ export type Buyer = {
   name?: string;
   /** Which audience to add them to. The caller decides — see `audienceFor`. */
   audienceId?: string;
+  /** The template they bought. Stored on the contact so it can be filtered on later. */
+  product?: string;
   /** For the log only: which order put them here, and which list it chose. */
   orderId?: string;
   list?: string;
@@ -135,6 +137,21 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
       audienceId,
       email,
       ...splitName(buyer.name),
+      // WRITTEN NOW BECAUSE IT CANNOT BE RECOVERED LATER. Which template
+      // someone bought exists only in the webhook that is being handled right
+      // now; once the contact is saved without it, that fact is gone for good
+      // and no amount of later work brings it back. It costs one field here
+      // and it is what makes "everyone who bought a blog template" a segment
+      // Wael can build himself in Resend, instead of a code change.
+      //
+      // The three keys are defined account-wide in Resend (Audience →
+      // Properties). Sending a key that is not defined there is ignored, so a
+      // typo here fails SILENTLY — check the contact after changing them.
+      properties: {
+        language: buyer.list ?? "",
+        template: buyer.product ?? "",
+        source: "polar",
+      },
       // Sent explicitly rather than left to default. There is a known Resend
       // bug where an omitted value lands as unsubscribed, and a contact that
       // silently arrives unsubscribed is a mailing list that quietly does
@@ -150,7 +167,7 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
       return "failed";
     }
 
-    console.log(`[mailing-list] added ${email} to the ${buyer.list ?? "?"} list — order ${buyer.orderId ?? "?"}`);
+    console.log(`[mailing-list] added ${email} to the ${buyer.list ?? "?"} list (${buyer.product ?? "no product"}) — order ${buyer.orderId ?? "?"}`);
     return "added";
   } catch (error) {
     console.error("Resend threw while adding a buyer:", error);

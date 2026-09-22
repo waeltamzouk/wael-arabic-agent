@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
     email: order.email,
     name: order.name,
     audienceId: audienceId(list),
+    product: order.product,
     orderId: order.id,
     list,
   });
