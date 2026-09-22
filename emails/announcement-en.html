@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tells clients the email is designed for light backgrounds, which stops
+     Gmail and Outlook inventing their own dark-mode colours and wrecking
+     the contrast. -->
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>A new template from Wael</title>
+</head>
+<!-- The English twin of announcement-ar.html: same structure, same colours,
+     left-to-right. Keep the two in step when you change one. -->
+<body dir="ltr" style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<!-- Preview text: the grey line the inbox shows next to the subject. Hidden in
+     the email itself. Left empty, the client grabs the first words it finds,
+     which is usually the wrong thing. -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+  [[TEMPLATE_NAME]] — a new Framer template, ready to customise
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+<tr>
+<td align="center" style="padding:24px 12px;">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+
+    <tr>
+      <td style="padding:28px 24px 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+        <p style="margin:0;font-size:14px;color:#71717a;">Wael Web Design</p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding:14px 24px 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+        <h1 style="margin:0;font-size:26px;line-height:1.4;color:#18181b;font-weight:700;">
+          New template: [[TEMPLATE_NAME]]
+        </h1>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding:14px 24px 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+        <p style="margin:0;font-size:16px;line-height:1.9;color:#3f3f46;">
+          [[TEMPLATE_LINE]]
+        </p>
+      </td>
+    </tr>
+
+    <!-- DELETE THIS WHOLE ROW if there is no image. An <img> that fails to
+         load leaves an ugly broken-image box, and many clients block images
+         by default anyway — which is why nothing important lives in it. -->
+    <tr>
+      <td style="padding:20px 24px 0 24px;">
+        <a href="[[TEMPLATE_URL]]" style="text-decoration:none;">
+          <img src="[[IMAGE_URL]]" alt="[[TEMPLATE_NAME]]" width="552"
+               style="display:block;width:100%;max-width:552px;height:auto;border:0;border-radius:8px;">
+        </a>
+      </td>
+    </tr>
+
+    <!-- The button is a table cell with a background colour, not a styled
+         <button> or a div. Outlook ignores padding on an <a>, so the padding
+         goes on the <td> and the <a> fills it. -->
+    <tr>
+      <td style="padding:24px 24px 0 24px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="center" bgcolor="#18181b" style="border-radius:8px;">
+              <a href="[[TEMPLATE_URL]]"
+                 style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                See the template
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding:24px 24px 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+        <p style="margin:0;font-size:15px;line-height:1.9;color:#3f3f46;">
+          Want it customised for your own business? Just reply to this email.
+        </p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding:28px 24px 28px 24px;">
+        <div style="border-top:1px solid #e4e4e7;padding-top:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+          <!-- WHY THEY ARE GETTING THIS. Not decoration: nobody remembers
+               where they left their email, and a reader who does not
+               recognise the sender presses "spam" instead of unsubscribe. -->
+          <p style="margin:0 0 10px 0;font-size:13px;line-height:1.8;color:#71717a;">
+            You are receiving this because you got a template from waeltamzouk.framer.ai.
+          </p>
+          <p style="margin:0;font-size:13px;line-height:1.8;color:#71717a;">
+            Don't want emails about new templates?
+            <!-- THE UNSUBSCRIBE. The variable is the href, so the reader sees
+                 one word instead of a 480-character token. Three braces, and
+                 the broadcast MUST have the audience attached or this
+                 silently becomes an empty link. -->
+            <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color:#71717a;text-decoration:underline;">Unsubscribe</a>
+          </p>
+        </div>
+      </td>
+    </tr>
+
+  </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>

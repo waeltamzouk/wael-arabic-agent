@@ -919,6 +919,17 @@ And for Wael: start a fresh chat at the start of each week's task.
   with `{{{RESEND_UNSUBSCRIBE_URL}}}` as its href, so the 481 characters
   never appear in the body. Then write a real email — a subject that
   names the template, and a line saying why they are receiving it.
+  TEMPLATES BUILT for this: `emails/announcement-ar.html` (RTL) and
+  `emails/announcement-en.html`, plus `emails/README.md`. Paste one into
+  a broadcast's code view (`</>`), fill the `[[PLACEHOLDERS]]`, send the
+  Arabic one to the Arabic list ONLY and the English one to the English
+  list ONLY. They are not sent by the app — they are hand-pasted.
+  GOTCHA caught while building them: `width="600"` with
+  `max-width:100%` OVERFLOWS a phone — the fixed HTML width attribute
+  wins and the reader scrolls sideways. The pattern that works is
+  `width="100%"` with `max-width:600px`. Checked at 375px in both
+  languages. Tables and inline styles throughout, because Outlook
+  renders mail through Word and has no flexbox or grid.
   Marketing should also move to a subdomain (`news.waelwebdesign.com`):
   the root domain carries Wael's Hostinger mailbox and MailerLite is in
   its SPF too, so a complaint there would hit the LEAD emails.
