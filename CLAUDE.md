@@ -930,9 +930,19 @@ And for Wael: start a fresh chat at the start of each week's task.
   `width="100%"` with `max-width:600px`. Checked at 375px in both
   languages. Tables and inline styles throughout, because Outlook
   renders mail through Word and has no flexbox or grid.
-  Marketing should also move to a subdomain (`news.waelwebdesign.com`):
-  the root domain carries Wael's Hostinger mailbox and MailerLite is in
-  its SPF too, so a complaint there would hit the LEAD emails.
+- A SENDING SUBDOMAIN (`news.waelwebdesign.com`) WAS TRIED AND UNDONE
+  on Sep 22. Claude suggested it, Wael pushed back, and Wael was right.
+  The reasoning against, so nobody proposes it again as if it were
+  settled: the "transactional" mail here goes to WAEL'S OWN INBOX, so a
+  spam landing costs one click of "not spam", not a lost customer.
+  Reputation is built by consistent volume, and 28 subscribers sent to a
+  few times a year is barely any signal — splitting it across two
+  domains means NEITHER warms up. And a new subdomain starts at zero, so
+  it would make the first announcements MORE likely to hit spam, not
+  less. Everything sends from `waelwebdesign.com`, which is verified and
+  already warming.
+  REVISIT only at a few hundred subscribers sending monthly, when there
+  is enough volume for two domains to each build a reputation.
 - UNDER SOFT OPT-IN THE UNSUBSCRIBE LINK IS NOT PAPERWORK, it is the only
   thing holding the lawful basis up. No box was ticked, so the opt-out in
   every email IS the consent mechanism. If a broadcast ever goes out with
