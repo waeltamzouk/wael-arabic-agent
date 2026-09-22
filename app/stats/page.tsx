@@ -36,14 +36,29 @@ const LABELS: Record<string, string> = {
   blocked_origin: "Blocked: bad origin",
   blocked_rate: "Blocked: rate limit",
   blocked_size: "Blocked: too long",
-  buyer_added: "Buyers added to the list",
-  buyer_duplicate: "Buyers already on the list",
-  buyer_no_consent: "Buyers who did not consent",
-  buyer_failed: "Buyers Resend refused",
-  polar_refused: "Blocked: bad Polar signature",
+  buyer_added: "Added to the list",
+  buyer_duplicate: "Already on the list",
+  buyer_no_consent: "Did not consent",
+  buyer_failed: "Resend refused",
+  polar_refused: "Blocked: bad signature",
 };
 
 const FUNNEL = ["opened", "started", "engaged", "qualified"] as const;
+
+// The Polar webhook's counters. A SEPARATE list from FUNNEL and from the
+// Totals grid below, because these describe buyers who never touched the chat.
+//
+// GOTCHA that hid them for a deploy: the Totals grid hardcodes its six
+// metrics. Adding a counter to METRICS and a label to LABELS makes it get
+// written and read, and still shows it NOWHERE. A new counter needs a place to
+// render or it is invisible.
+const BUYERS = [
+  "buyer_added",
+  "buyer_duplicate",
+  "buyer_no_consent",
+  "buyer_failed",
+  "polar_refused",
+] as const;
 
 function pct(part: number, whole: number) {
   if (!whole) return "—";
@@ -184,6 +199,26 @@ export default async function StatsPage({
               </div>
             )
           )}
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-2 font-medium">Template buyers</h2>
+        <p className="mb-2 text-xs text-neutral-500">
+          From the Polar webhook, not the chat. Did not consent counts both
+          buyers who left the checkout box unticked and orders whose checkout
+          never asked — so if it climbs while Added stays at zero, the consent
+          field is not attached to the product they bought.
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {BUYERS.map((metric) => (
+            <div key={metric} className="rounded-lg border border-neutral-200 p-3">
+              <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
+              <div className="mt-1 text-xl font-semibold tabular-nums">
+                {overall[metric] ?? 0}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 

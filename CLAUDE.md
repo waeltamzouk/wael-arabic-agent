@@ -30,7 +30,8 @@ Env vars, all in `.env.local` AND in Vercel project settings:
 `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `LEAD_TO_EMAIL`,
 `LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`),
 `STATS_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
-`POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`.
+`POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`,
+`LEAD_DEFAULT_COUNTRY_CODE` (optional — see "WhatsApp link").
 
 ## About me
 Strong: Framer, design, Arabic.
@@ -799,6 +800,45 @@ And for Wael: start a fresh chat at the start of each week's task.
   just WhatsApp. Ask two or three real prospects before building toward
   either. Claude's read was WhatsApp, but that is a read, not data.
 
+## WhatsApp link in the lead email (W6-T3, Sep 22)
+- Tier 1 of the WhatsApp plan above, and it is now built: every lead email
+  carries a `WhatsApp: https://wa.me/<digits>` line under the plain `Phone:`
+  line. The number itself is never replaced — the link is an addition, so a
+  lead is still readable when no link could be built.
+- Plain text, no HTML part. Gmail and Apple Mail auto-link a bare `https://`
+  URL, which is the one tap the task asked for, and an HTML part would have
+  meant escaping every field for no extra reach.
+- THE WHOLE PROBLEM is that `wa.me` FAILS SILENTLY. Wrong digits do not
+  error — they open a chat with a stranger, or with nobody, and Wael thinks
+  he has messaged the lead. So `lib/whatsapp.ts` links only a number that
+  states its own country, and otherwise prints `WhatsApp: no link — <reason>`.
+  Saying why beats guessing.
+- WHAT CANNOT BE INFERRED, and this is the decision: `0551234567` is a valid
+  mobile number in Saudi Arabia AND in the UAE. Ten digits, same 05 prefix,
+  no way to tell them apart. Nothing in the conversation, the site or the
+  prompt narrows it down. So local numbers are linked ONLY when
+  `LEAD_DEFAULT_COUNTRY_CODE` is set — Wael stating where his leads come
+  from. Unset, they get the number and an explanation. Do NOT add a
+  hardcoded default here: it would be the guess this file exists to prevent.
+- `+971 …`, `00971 …` and Arabic-Indic digits (`٠٥٥…`, `۰۵۵…`) all link with
+  no config at all.
+- A number is only accepted if the field contains EXACTLY ONE phone-shaped
+  run of 7+ digits and the result is 8-15 digits (E.164). Two numbers, a
+  refusal, an empty field or junk all produce no link.
+- GOTCHA that shaped the regex: the separator class is digits and
+  `space - ( ) .` and deliberately NO letters. With letters in it,
+  `"055 123 4567 (after 5pm)"` swallows the 5 of "5pm" and produces an
+  11-digit number that looks perfectly real. Letters are what stop the run.
+- `+966 0551234567` (country code AND the trunk zero) is repaired, but only
+  when the zero follows the CONFIGURED country code, so it can never mangle
+  a number from somewhere else.
+- A junk `LEAD_DEFAULT_COUNTRY_CODE` (letters, or more than 4 digits) is
+  treated as unset. A typo in the env var must cost a link, never produce a
+  wrong one.
+- Tested with a 35-case table plus the rendered email body, both in the
+  scratchpad, with Resend's transport stubbed so no mail was sent. Same
+  trick as the tool-loop test above: stub the send, print the payload.
+
 ## The two sites are SEPARATE (Sep 22)
 - `waelwebdesign.com` — Arabic, services + six templates, own clients.
 - `waeltamzouk.framer.ai` — English, templates only, SEVEN templates,
@@ -893,8 +933,15 @@ And for Wael: start a fresh chat at the start of each week's task.
   instead of being retried. The log line carries their address. If it
   ever happens twice, return 500 for `failed` ONLY — never for a
   refused consent, which would retry forever.
-- Counters on /stats: `buyer_added`, `buyer_duplicate`,
+- Counters on /stats, in their own "Template buyers" section because they
+  are not chat-funnel numbers: `buyer_added`, `buyer_duplicate`,
   `buyer_no_consent`, `buyer_failed`, `polar_refused`.
+- GOTCHA that hid them for one deploy: the Totals grid on the stats page
+  HARDCODES its six metrics — it does not map over `METRICS`. Adding a
+  counter to `METRICS` and a label to `LABELS` gets it written to Upstash
+  and read back, and renders it NOWHERE. A new counter needs somewhere to
+  render or it is invisible. (`blocked_origin` is still in this state:
+  recorded, labelled, never shown.)
 - HOW IT WAS TESTED without a Polar account, and the script is worth
   rebuilding: sign requests with `node:crypto` exactly as Polar does and
   POST them at `localhost:3000/api/polar`. 17/17 — both key schemes,
