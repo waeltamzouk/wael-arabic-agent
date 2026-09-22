@@ -53,7 +53,10 @@ Explain as you go. Ask before big changes.
       links, same-tab navigation with the conversation preserved,
       template links defaulting to waelwebdesign.com, and the reply
       language pinned in code.
-- [ ] Phase 4: lead capture from the live widget
+- [x] Phase 4 (Sep 22): lead capture from the live bubble, verified end to
+      end on waelwebdesign.com. Three real leads delivered to the inbox:
+      Arabic project, Arabic template (from `/template/nabdh`), and an
+      ENGLISH project lead. All fields populated, `type` correct on both.
 - [ ] Phase 5: HubSpot
 
 ## Repo notes
@@ -576,3 +579,99 @@ conversation. Rules for Claude:
 - Keep explanations short unless Wael asks for more.
 - Write decisions into this file ONCE, not into every reply.
 And for Wael: start a fresh chat at the start of each week's task.
+
+## Phase 4 — the lead flow through the live bubble (Sep 22)
+- VERIFIED LIVE on waelwebdesign.com, through the real floating bubble,
+  which had never been done: Arabic project lead (7 turns, all five
+  qualifying questions), Arabic template lead from the نَبض template
+  page, and an ENGLISH project lead. Three emails, all correct,
+  `type: project | template` right on both, and the English lead's
+  fields extracted in English (`Budget: $2000`, `Timeline: 6 weeks`).
+- The `systemFor` question, settled: the same `system` value is used for
+  BOTH calls in the tool loop. It is computed once, from the last USER
+  message of the ORIGINAL array, so the second call is not confused by
+  the tool_result arriving with role `user`. It was already correct; it
+  is now explicit, with `languageOf()` split out from `systemFor()`.
+- TWO PREDICTED BUGS THAT DID NOT EXIST. Worth recording so nobody
+  "fixes" them again:
+  1. Duplicate lead emails. The widget stores only plain text, so the
+     tool_use and tool_result blocks are NEVER persisted — on the next
+     turn Claude sees a name and phone with no record that it already
+     sent them. It still does not re-fire: its own confirmation sentence
+     is enough signal. Checked with a live follow-up and across three
+     offline follow-up turns. One email every time.
+  2. The Arabic fallback leaking into an English reply. Never fired —
+     the second call always produced text. Fixed anyway, see below.
+- HOW TO TEST THE TOOL LOOP WITHOUT EMAILING WAEL, and this is the
+  useful trick: replicate the loop in a scratch script with `sendLead`
+  replaced by a counter. It talks to the Anthropic API directly, so it
+  also BYPASSES `/api/chat` and spends none of the rate-limit budget.
+  That is how the Arabic/English × project/template matrix was checked
+  before a single real email was sent. Run it from inside the project
+  folder or `@anthropic-ai/sdk` will not resolve.
+
+## The caps, actually measured (Sep 22) — stop guessing at these
+- Arabic is **1.52 chars per token**. English is **4.51**. Arabic is
+  DENSE: it uses FEWER characters for the same content, which is the
+  opposite of the intuition that "long Arabic answers" threaten the
+  caps. Measured with `messages.countTokens`, which is free.
+- Real sampled assistant replies: Arabic averages **389 chars**; the
+  longest English answer anyone could provoke (compare all six
+  templates) was **1,128 chars** against the 2,000 per-message cap.
+- A full 14-message qualifying conversation is **~3,560 chars — 18% of
+  the 20,000 total cap**, and 14 of 40 messages. Nothing is close.
+- Consequence: `MAX_MESSAGES` (40) fires LONG before `MAX_TOTAL_CHARS`
+  (20,000) at real message sizes. The char cap is not the binding one.
+- `max_tokens` is 1024, so a maxed-out Arabic reply is ~1,550 chars and
+  CANNOT breach the 2,000 per-message cap. English could in theory
+  (1024 tokens ≈ 4,600 chars) but never came near it in practice.
+- The RATE LIMIT is the only real constraint on a lead conversation, not
+  the size caps. 13 live requests across ~10 minutes never tripped it,
+  because each turn's round trip naturally spaces requests ~15s apart.
+
+## Phase 4 fixes (Sep 22)
+- `guard.ts`: the hourly limit had the SAME notice as the per-minute one
+  ("انتظر دقيقة"). After 50/hour a minute does nothing. The hourly case
+  is now checked first and has its own notice pointing at /contact.
+- `guard.ts`: BOTH size notices said "حدّث الصفحة لتبدأ محادثة جديدة".
+  That was true when written and became FALSE in Phase 3 — sessionStorage
+  means a refresh RESTORES the same oversized conversation, so the
+  visitor loops with no way out. Only closing the tab clears it. The
+  notice now says so. A "بدء محادثة جديدة" button in the widget would be
+  the better fix; not built.
+- `route.ts`: `LEAD_SENT_REPLY` was hardcoded Arabic and is the fallback
+  on the ENGLISH path too. It is now keyed by language. This fires at
+  the exact moment someone has handed over their phone number, which is
+  the worst possible place to answer in the wrong language.
+- `route.ts`: the second call now sends `tool_choice: { type: "none" }`.
+  `tools` must STAY — the API rejects a conversation containing tool_use
+  blocks when `tools` is missing — but the second call's only job is to
+  write the visitor's sentence. Without this, a second `save_lead` was
+  silently dropped and unlogged, and a reply that is nothing but a
+  tool_use has no text and falls through to the canned line. Verified
+  accepted by the API in both languages.
+- `route.ts`: `toolUse.input as Lead` was an unchecked cast. `required`
+  in a tool schema is a hint, not a guarantee. `isUsableLead()` now
+  checks name and phone are non-empty before emailing, and logs instead
+  of sending a lead of dashes — which looks like a real lead in the
+  inbox and is worse than no email.
+
+## Testing the bubble with Claude's browser tools (Sep 22)
+- The panel is a CROSS-ORIGIN iframe, so `javascript_tool` cannot reach
+  inside it and the `preview_eval` recipe further up this file does not
+  apply. Real `computer` clicks and typing DO work — they are browser
+  level input, not JS.
+- GOTCHA: the first `type` after a click often lands LATE. It looks
+  swallowed, so you type again and the message arrives DOUBLED or
+  TRIPLED. Always screenshot to confirm the textarea before clicking
+  إرسال, and `cmd+a` then retype rather than typing more.
+- GOTCHA: `resize_window` emulation goes stale when the pane is resized.
+  The screenshot's coordinate frame then disagrees with the real
+  viewport and every click lands in the wrong place — silently, because
+  a missed click just does nothing. Reset with preset `desktop` and take
+  a fresh screenshot whenever clicks stop working.
+- UNRESOLVED: pressing Enter did not submit during this test; clicking
+  إرسال always worked. Typing into the iframe was unreliable in general,
+  so this may be the automation layer rather than `handleKeyDown`. Wael
+  should press Enter once by hand — it is how most people send a chat
+  message.

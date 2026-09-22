@@ -16,8 +16,14 @@ const anthropic = new Anthropic();
 const MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 1024;
 
-// Said back to the visitor if Claude calls the tool again instead of writing text.
-const LEAD_SENT_REPLY = "تم تسجيل بياناتك. وائل بيتواصل معك قريباً.";
+// Said back to the visitor if Claude calls the tool again instead of writing
+// text. Keyed by language: this fires at the exact moment someone has just
+// handed over their phone number, and answering an English visitor in Arabic
+// there is the worst possible place to slip.
+const LEAD_SENT_REPLY = {
+  ar: "تم تسجيل بياناتك. وائل بيتواصل معك قريباً.",
+  en: "Your details have been saved. Wael will be in touch shortly.",
+} as const;
 
 const LEAD_TOOL: Anthropic.Tool = {
   name: "save_lead",
@@ -141,12 +147,28 @@ const ARABIC_DIRECTIVE = `
 آخر رسالة من الزائر تطلب الشراء أو الحصول على القالب صراحةً. إذا لم يطلب
 ذلك بنفسه، فلا وجود لرابط Polar في ردك إطلاقاً.`;
 
-function systemFor(messages: ChatMessage[]) {
+function languageOf(messages: ChatMessage[]): "ar" | "en" {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  const language = lastUser ? detectLanguage(lastUser.content) : "ar";
+  return lastUser ? detectLanguage(lastUser.content) : "ar";
+}
+
+function systemFor(language: "ar" | "en") {
   return (
     SYSTEM_PROMPT +
     (language === "en" ? ENGLISH_DIRECTIVE : ARABIC_DIRECTIVE)
+  );
+}
+
+// `required` in the tool schema is a hint to Claude, not a guarantee. Nothing
+// downstream checks, so a malformed call would email a lead of dashes — which
+// looks like a real lead in the inbox and is worse than no email at all.
+function isUsableLead(input: unknown): input is Lead {
+  const lead = input as Lead | null;
+  return (
+    typeof lead?.name === "string" &&
+    lead.name.trim().length > 0 &&
+    typeof lead?.phone === "string" &&
+    lead.phone.trim().length > 0
   );
 }
 
@@ -190,7 +212,11 @@ export async function POST(req: NextRequest) {
   if (oversized) return refuse(req, oversized);
 
   try {
-    const system = systemFor(messages);
+    // Computed ONCE and used for BOTH calls in the tool loop. The second call's
+    // last message is a tool_result, so recomputing it there would read the
+    // wrong message and could flip the language mid-answer.
+    const language = languageOf(messages);
+    const system = systemFor(language);
 
     const first = await anthropic.messages.create({
       model: MODEL,
@@ -207,13 +233,26 @@ export async function POST(req: NextRequest) {
     const toolUse = first.content.find((block) => block.type === "tool_use");
 
     if (toolUse) {
-      const sent = await sendLead(toolUse.input as Lead);
+      let sent = false;
+
+      if (isUsableLead(toolUse.input)) {
+        sent = await sendLead(toolUse.input);
+      } else {
+        console.error("save_lead called without a name or phone:", toolUse.input);
+      }
 
       final = await anthropic.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system,
         tools: [LEAD_TOOL],
+        // `tools` must stay — the API rejects a conversation containing
+        // tool_use blocks when it is missing. But this call's only job is to
+        // write the sentence the visitor reads, so forbid a SECOND tool call:
+        // the loop is one iteration deep, so a second call would be silently
+        // dropped, and a reply that is nothing but a tool_use has no text at
+        // all and falls through to the canned line.
+        tool_choice: { type: "none" },
         messages: [
           ...messages,
           { role: "assistant", content: first.content },
@@ -241,7 +280,7 @@ export async function POST(req: NextRequest) {
     );
 
     // The widget throws on an empty reply, so never return one.
-    return json(req, { reply: reply || LEAD_SENT_REPLY });
+    return json(req, { reply: reply || LEAD_SENT_REPLY[language] });
   } catch (error) {
     console.error("Anthropic API error:", error);
 

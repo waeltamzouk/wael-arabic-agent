@@ -149,14 +149,28 @@ export function rateLimit(ip: string): GuardFailure | null {
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < HOUR);
   const lastMinute = recent.filter((t) => now - t < MINUTE).length;
 
-  if (lastMinute >= MAX_PER_MINUTE || recent.length >= MAX_PER_HOUR) {
+  const overHour = recent.length >= MAX_PER_HOUR;
+  const overMinute = lastMinute >= MAX_PER_MINUTE;
+
+  if (overHour || overMinute) {
     // Record nothing: a blocked request must not push its own limit further out.
     hits.set(ip, recent);
-    return {
-      status: 429,
-      error: `Rate limit exceeded for ${ip}.`,
-      notice: "رسائل كثيرة في وقت قصير. انتظر دقيقة ثم حاول مرة أخرى.",
-    };
+
+    // The hourly limit is checked FIRST and has its own notice. Telling someone
+    // who has burnt the hourly budget to "wait a minute" is simply wrong — a
+    // minute does nothing, and they come back to the same wall.
+    return overHour
+      ? {
+          status: 429,
+          error: `Rate limit exceeded (hourly) for ${ip}.`,
+          notice:
+            "وصلت للحد الأقصى من الرسائل لهذه الساعة. جرّب بعد شوي، أو تواصل مع وائل مباشرة على https://waelwebdesign.com/contact",
+        }
+      : {
+          status: 429,
+          error: `Rate limit exceeded (per minute) for ${ip}.`,
+          notice: "رسائل كثيرة في وقت قصير. انتظر دقيقة ثم حاول مرة أخرى.",
+        };
   }
 
   recent.push(now);
@@ -177,6 +191,14 @@ export const MAX_MESSAGES = 40;
 export const MAX_MESSAGE_CHARS = 2_000;
 export const MAX_TOTAL_CHARS = 20_000;
 
+// GOTCHA, and this notice was WRONG until Sep 22: it used to say "حدّث الصفحة"
+// — refresh the page. That was true when it was written, but Phase 3 added
+// sessionStorage persistence, so a refresh RESTORES the same oversized
+// conversation and the visitor is stuck in a loop with no way out. Only closing
+// the tab clears it. Say the thing that actually works.
+const TOO_LONG_NOTICE =
+  "المحادثة طويلة جداً. أغلق التبويب وافتح الموقع من جديد لتبدأ محادثة جديدة، أو تواصل مع وائل على https://waelwebdesign.com/contact";
+
 export function checkSize(
   messages: { content: string }[]
 ): GuardFailure | null {
@@ -184,7 +206,7 @@ export function checkSize(
     return {
       status: 413,
       error: `Too many messages: ${messages.length} (max ${MAX_MESSAGES}).`,
-      notice: "المحادثة طويلة جداً. حدّث الصفحة لتبدأ محادثة جديدة.",
+      notice: TOO_LONG_NOTICE,
     };
   }
 
@@ -205,7 +227,7 @@ export function checkSize(
     return {
       status: 413,
       error: `Conversation too long: ${total} chars (max ${MAX_TOTAL_CHARS}).`,
-      notice: "المحادثة طويلة جداً. حدّث الصفحة لتبدأ محادثة جديدة.",
+      notice: TOO_LONG_NOTICE,
     };
   }
 
