@@ -1174,6 +1174,13 @@ And for Wael: start a fresh chat at the start of each week's task.
     unlocked can never exceed offered. /stats English section now shows
     both in the funnel, plus bad email / list failed / code missing in
     Totals (the last two should stay 0).
+  - THE CODE IN POLAR (Wael's screenshots, Sep 24): "30% all templates",
+    -30%, ALL products (All Access included), 1 PER CUSTOMER (was 10, fixed
+    to match what the agent promises), 1000 redemptions total (was 100;
+    Wael: no worries about that cap), ends SEP 1 2027. After the end date
+    the agent keeps handing out a dead code, the exact failure this feature
+    must avoid: before Sep 2027, extend the date in Polar or change
+    `DISCOUNT_CODE_EN`.
   - Verified: 7/7 on the helpers and the Resend-down path; a real 3-turn
     English chat on an isolated copy with an invalid Resend key gave the
     code, no list promise, no inbox claim, and logged offered once,
