@@ -1068,9 +1068,9 @@ And for Wael: start a fresh chat at the start of each week's task.
   `framer-bubble-en.html` → `/embed?site=templates` → `ChatWidget site=` →
   `POST /api/chat?site=templates` → `promptFor(site)` + that site's
   directives. NO param anywhere = the Arabic site, so the live
-  waelwebdesign.com snippet keeps working with no re-paste. An unknown
-  value is refused (`/embed` 404, `/api/chat` 400) instead of silently
-  answering as Arabic, so a typo in a paste is obvious.
+  waelwebdesign.com snippet keeps working with no re-paste.
+  SUPERSEDED by W7-T3: an unknown value USED to be refused (`/embed` 404,
+  `/api/chat` 400). It now falls back to the Arabic site — see below.
 - `lib/site.ts` holds `Site`, `DEFAULT_SITE`, `siteFromParam`,
   `siteMetric`. It is SEPARATE from `lib/prompts` on purpose: the widget is
   a browser component, and importing `lib/prompts` there would ship the
@@ -1145,8 +1145,39 @@ And for Wael: start a fresh chat at the start of each week's task.
   Polar only when asked to buy, no form, Monaro unknown. Cache: write 2,949
   then read 2,949. Arabic site still answers 800.
 - NOT DONE, in order: (1) Navarro's page list, from Wael; (2) the email
-  tool → Resend Audience; (3) templates rows on /stats; (4) paste
-  `framer-bubble-en.html` into waeltamzouk.framer.ai.
+  tool → Resend Audience; (3) paste `framer-bubble-en.html` into
+  waeltamzouk.framer.ai. (Templates rows on /stats: DONE in W7-T3.)
+- DONE W7-T3 (Sep 24): the fallback, and /stats per site.
+  - AN UNKNOWN `site` NOW FALLS BACK TO waelwebdesign, on `/embed`,
+    `/api/chat` and `/api/event`. `siteFromParam` always returns a site and
+    never throws. Wael's call: someone WILL hit /embed with a junk param, and
+    they must get a working agent, not a 404.
+  - WHY THIS NEVER SERVES THE WRONG PROMPT: `/embed` resolves the site ONCE
+    and hands it to the panel, and the Arabic panel sends NO `?site` to
+    /api/chat. So the panel on screen and the prompt behind it always match.
+  - Case and spaces are forgiven first (`Templates `, `TEMPLATES` → the
+    English site). Those are the typos a hand paste into Framer produces, and
+    falling back on them would hand the English site the Arabic agent.
+  - THE COST: a typo is no longer loud. It is logged as
+    `[site] unknown site "…", using waelwebdesign` — grep the Vercel logs for
+    `[site]` if the English bubble ever answers in Arabic.
+  - FUNNEL HISTORY IS UNTOUCHED. The Arabic site keeps the bare key names
+    (`chat:total:started`), so nothing was renamed or abandoned. The English
+    site writes `templates_*`. /stats reads both and shows one section per
+    site; `SITE_METRICS` in `lib/stats.ts` is the list of prefixed ones.
+    The Polar buyer counters are in neither — they are not a chat site.
+  - The English section stops at "6 exchanges" with no leads row, because
+    that site has no form yet. Add its steps when the email tool ships.
+  - Verified on an isolated copy with an Upstash stand-in: 9 `/embed`
+    variants all 200 with the right panel; `?site=bogus` answered 800
+    dollars in Arabic, `?site=templates` answered Pulsai 99 dollars in
+    English; seeded old Arabic keys + `templates_*` came out in the right
+    sections; 420 GETs = 14 days × 28 metrics + 28; no sideways scroll at
+    375px.
+  - TESTING TIP: another chat's `next dev` can own port 3000 in this folder,
+    and a second `next dev` in the SAME folder fights over `.next`. Copy the
+    project to the scratchpad (`cp -cR node_modules` is an instant APFS clone;
+    a symlinked node_modules breaks Turbopack) and run it on another port.
 - The English site's "Take the quiz" button is currently DEAD — it goes
   nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
   building and recommends a template is a conversation wearing a form's

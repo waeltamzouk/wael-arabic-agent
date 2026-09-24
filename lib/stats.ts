@@ -16,6 +16,7 @@
 //    ever stored. Only counts go to Upstash: no names, phones or message text.
 
 import { after } from "next/server";
+import { DEFAULT_SITE, SITES, siteMetric } from "@/lib/site";
 
 // Normalised, because the value gets copied out of a dashboard by hand and the
 // three ways it usually arrives wrong all produce the same unhelpful failure:
@@ -241,3 +242,29 @@ export const METRICS = [
   "buyer_failed",
   "polar_refused",
 ] as const;
+
+// The chat counters every OTHER site writes, under its own prefix
+// (`templates_started`, …) — see siteMetric. The Arabic site's are the bare
+// names in METRICS above, so its history never moved when sites were added.
+// No lead or buyer counters here: only the Arabic site has the contact form,
+// and the Polar webhook is not a chat site at all.
+export const SITE_METRICS = [
+  "opened",
+  "started",
+  "engaged",
+  "qualified",
+  "form_shown",
+  "lang_ar",
+  "lang_en",
+  "blocked_origin",
+  "blocked_rate",
+  "blocked_size",
+] as const;
+
+/** Every key the stats page reads: the bare ones plus each site's prefixed ones. */
+export function allMetrics(): string[] {
+  const extra = SITES.filter((site) => site !== DEFAULT_SITE).flatMap((site) =>
+    SITE_METRICS.map((metric) => siteMetric(site, metric))
+  );
+  return [...METRICS, ...extra];
+}

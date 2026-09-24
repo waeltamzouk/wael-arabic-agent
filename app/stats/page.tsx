@@ -6,8 +6,9 @@
 // Google, and a wrong or missing key renders nothing at all.
 
 import type { Metadata } from "next";
+import { siteMetric, type Site } from "@/lib/site";
 import {
-  METRICS,
+  allMetrics,
   lastDays,
   readTotals,
   statsEnabled,
@@ -72,6 +73,40 @@ const BUYERS = [
   "polar_refused",
 ] as const;
 
+// One section per site, because the two sites are separate businesses with
+// separate funnels (see "The two sites are SEPARATE" in CLAUDE.md). Adding them
+// together would say nothing about either. The Arabic site reads the bare
+// counter names, so its numbers are exactly what this page showed before
+// W7-T3; the English site reads `templates_*`.
+//
+// The English site has NO contact form yet, so it stops at "Got 6 exchanges
+// in" and has no leads row. Give it the form steps when its email tool ships.
+const SITE_VIEWS: {
+  site: Site;
+  title: string;
+  subtitle: string;
+  funnel: readonly string[];
+  totals: readonly string[];
+  leads: boolean;
+}[] = [
+  {
+    site: "waelwebdesign",
+    title: "waelwebdesign.com",
+    subtitle: "Arabic agent — services and templates",
+    funnel: FUNNEL,
+    totals: ["lead_project", "lead_template", "lang_ar", "lang_en", "blocked_rate", "blocked_size"],
+    leads: true,
+  },
+  {
+    site: "templates",
+    title: "waeltamzouk.framer.ai",
+    subtitle: "English templates agent",
+    funnel: ["opened", "started", "engaged", "qualified"],
+    totals: ["blocked_rate", "blocked_size"],
+    leads: false,
+  },
+];
+
 function pct(part: number, whole: number) {
   if (!whole) return "—";
   return `${Math.round((part / whole) * 100)}%`;
@@ -116,7 +151,7 @@ export default async function StatsPage({
   }
 
   const days = lastDays(DAYS);
-  const metrics = [...METRICS];
+  const metrics = allMetrics();
 
   // A counter that cannot be read must never take the page down. Before this
   // was caught, a bad Upstash URL or token threw straight out of the component
@@ -145,7 +180,9 @@ export default async function StatsPage({
     );
   }
 
-  const leads = overall.lead_project + overall.lead_template;
+  // A site's own count for a bare metric name.
+  const count = (totals: Record<string, number>, site: Site, metric: string) =>
+    totals[siteMetric(site, metric)] ?? 0;
 
   return (
     // `min-w-0 w-full` is load-bearing, and it is the width twin of the scroll
@@ -164,63 +201,108 @@ export default async function StatsPage({
         no names, numbers or message text are stored here.
       </p>
 
-      <section className="mt-6">
-        <h2 className="mb-2 font-medium">Where people drop off</h2>
-        <div className="overflow-hidden rounded-lg border border-neutral-200">
-          <table className="w-full border-collapse">
-            <tbody>
-              {FUNNEL.map((metric) => (
-                <tr key={metric} className="border-b border-neutral-100 last:border-0">
-                  <td className="p-3 text-neutral-600">{LABELS[metric]}</td>
-                  <td className="p-3 text-right font-medium tabular-nums">
-                    {overall[metric] ?? 0}
-                  </td>
-                  <td className="w-20 p-3 text-right tabular-nums text-neutral-400">
-                    {pct(overall[metric] ?? 0, overall.opened ?? 0)}
-                  </td>
-                </tr>
-              ))}
-              <tr className="bg-neutral-50">
-                <td className="p-3 font-medium">Leads emailed</td>
-                <td className="p-3 text-right font-medium tabular-nums">{leads}</td>
-                <td className="p-3 text-right tabular-nums text-neutral-400">
-                  {pct(leads, overall.opened ?? 0)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-neutral-500">
-          Percentages are of everyone who opened the bubble.
-        </p>
-      </section>
+      {SITE_VIEWS.map(({ site, title, subtitle, funnel, totals, leads }) => {
+        const opened = count(overall, site, "opened");
+        const leadCount = leads
+          ? count(overall, site, "lead_project") + count(overall, site, "lead_template")
+          : 0;
 
-      <section className="mt-8">
-        <h2 className="mb-2 font-medium">Totals</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {["lead_project", "lead_template", "lang_ar", "lang_en", "blocked_rate", "blocked_size"].map(
-            (metric) => (
-              <div
-                key={metric}
-                className="rounded-lg border border-neutral-200 p-3"
-              >
-                <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums">
-                  {overall[metric] ?? 0}
+        return (
+          <section key={site} className="mt-10 border-t border-neutral-200 pt-6">
+            <h2 className="text-base font-semibold">{title}</h2>
+            <p className="mt-0.5 text-neutral-500">{subtitle}</p>
+
+            <h3 className="mb-2 mt-4 font-medium">Where people drop off</h3>
+            <div className="overflow-hidden rounded-lg border border-neutral-200">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {funnel.map((metric) => (
+                    <tr key={metric} className="border-b border-neutral-100 last:border-0">
+                      <td className="p-3 text-neutral-600">{LABELS[metric]}</td>
+                      <td className="p-3 text-right font-medium tabular-nums">
+                        {count(overall, site, metric)}
+                      </td>
+                      <td className="w-20 p-3 text-right tabular-nums text-neutral-400">
+                        {pct(count(overall, site, metric), opened)}
+                      </td>
+                    </tr>
+                  ))}
+                  {leads && (
+                    <tr className="bg-neutral-50">
+                      <td className="p-3 font-medium">Leads emailed</td>
+                      <td className="p-3 text-right font-medium tabular-nums">{leadCount}</td>
+                      <td className="p-3 text-right tabular-nums text-neutral-400">
+                        {pct(leadCount, opened)}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              Percentages are of everyone who opened the bubble on this site.
+            </p>
+
+            <h3 className="mb-2 mt-6 font-medium">Totals</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {totals.map((metric) => (
+                <div key={metric} className="rounded-lg border border-neutral-200 p-3">
+                  <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums">
+                    {count(overall, site, metric)}
+                  </div>
                 </div>
-              </div>
-            )
-          )}
-        </div>
-      </section>
+              ))}
+            </div>
 
-      <section className="mt-8">
-        <h2 className="mb-2 font-medium">Template buyers</h2>
-        <p className="mb-2 text-xs text-neutral-500">
-          From the Polar webhook, not the chat. Did not consent counts both
-          buyers who left the checkout box unticked and orders whose checkout
-          never asked — so if it climbs while Added stays at zero, the consent
-          field is not attached to the product they bought.
+            <h3 className="mb-2 mt-6 font-medium">By day</h3>
+            <div className="overflow-x-auto rounded-lg border border-neutral-200">
+              <table className="w-full border-collapse whitespace-nowrap">
+                <thead>
+                  <tr className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+                    <th className="p-2 text-left font-medium">Day</th>
+                    {funnel.map((m) => (
+                      <th key={m} className="p-2 text-right font-medium">
+                        {LABELS[m].replace("Got ", "").replace(" the bubble", "")}
+                      </th>
+                    ))}
+                    {leads && <th className="p-2 text-right font-medium">Leads</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {days.map((day) => {
+                    const row = byDay[day] ?? {};
+                    return (
+                      <tr key={day} className="border-b border-neutral-100 last:border-0">
+                        <td className="p-2 text-neutral-600">{day}</td>
+                        {funnel.map((m) => (
+                          <td key={m} className="p-2 text-right tabular-nums">
+                            {count(row, site, m)}
+                          </td>
+                        ))}
+                        {leads && (
+                          <td className="p-2 text-right font-medium tabular-nums">
+                            {count(row, site, "lead_project") + count(row, site, "lead_template")}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
+
+      <section className="mt-10 border-t border-neutral-200 pt-6">
+        <h2 className="text-base font-semibold">Template buyers</h2>
+        <p className="mb-2 mt-0.5 text-xs text-neutral-500">
+          From the Polar webhook, not the chat, so it belongs to neither site
+          above. Did not consent counts both buyers who left the checkout box
+          unticked and orders whose checkout never asked — so if it climbs while
+          Added stays at zero, the consent field is not attached to the product
+          they bought.
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {BUYERS.map((metric) => (
@@ -231,48 +313,6 @@ export default async function StatsPage({
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-2 font-medium">By day</h2>
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
-          <table className="w-full border-collapse whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
-                <th className="p-2 text-left font-medium">Day</th>
-                {FUNNEL.map((m) => (
-                  <th key={m} className="p-2 text-right font-medium">
-                    {LABELS[m].replace("Got ", "").replace(" the bubble", "")}
-                  </th>
-                ))}
-                <th className="p-2 text-right font-medium">Leads</th>
-              </tr>
-            </thead>
-            <tbody>
-              {days.map((day) => {
-                const row = byDay[day] ?? {};
-                const dayLeads =
-                  (row.lead_project ?? 0) + (row.lead_template ?? 0);
-                return (
-                  <tr
-                    key={day}
-                    className="border-b border-neutral-100 last:border-0"
-                  >
-                    <td className="p-2 text-neutral-600">{day}</td>
-                    {FUNNEL.map((m) => (
-                      <td key={m} className="p-2 text-right tabular-nums">
-                        {row[m] ?? 0}
-                      </td>
-                    ))}
-                    <td className="p-2 text-right font-medium tabular-nums">
-                      {dayLeads}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </section>
     </main>

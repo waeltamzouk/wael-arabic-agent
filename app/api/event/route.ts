@@ -34,11 +34,11 @@ export async function POST(req: NextRequest) {
   }
 
   const name = req.nextUrl.searchParams.get("name") ?? "";
-  // Same `?site=` as /api/chat. No param is the Arabic site, which is what the
-  // live waelwebdesign.com snippet sends.
+  // Same `?site=` as /api/chat. No param (or an unknown one) is the Arabic
+  // site, which is what the live waelwebdesign.com snippet sends.
   const site = siteFromParam(req.nextUrl.searchParams.get("site"));
 
-  if (!ALLOWED_EVENTS.has(name) || !site) {
+  if (!ALLOWED_EVENTS.has(name)) {
     return new NextResponse(null, { status: 400, headers: corsHeaders(req) });
   }
 

@@ -16,14 +16,28 @@ export function isSite(value: unknown): value is Site {
 }
 
 /**
- * The site named by a `?site=` query value. Missing means the Arabic site —
- * that is every request the waelwebdesign.com bubble has ever sent, and it
- * must keep working without a new Framer paste. Anything else unknown is
- * null, so the caller can refuse it instead of silently answering as Arabic.
+ * The site named by a `?site=` query value. ALWAYS returns a site, never null
+ * and never throws.
+ *
+ * Missing means the Arabic site — that is every request the waelwebdesign.com
+ * bubble has ever sent, and it must keep working without a new Framer paste.
+ * Case and stray spaces are forgiven (`Templates`, ` templates`), because a
+ * hand-typed paste in Framer is exactly where those come from, and falling back
+ * on them would hand the English site the Arabic prompt.
+ *
+ * Anything still unknown ALSO falls back to the Arabic site (W7-T3, Sep 24 —
+ * this reverses W7-T1, which refused it with a 404/400). A visitor must always
+ * get a working agent. The cost is that a typo is no longer loud, so it is
+ * logged as `[site] unknown …` — grep the Vercel logs for that.
  */
-export function siteFromParam(value: string | null | undefined): Site | null {
-  if (value == null || value === "") return DEFAULT_SITE;
-  return isSite(value) ? value : null;
+export function siteFromParam(value: string | null | undefined): Site {
+  const cleaned = (value ?? "").trim().toLowerCase();
+  if (cleaned === "") return DEFAULT_SITE;
+  if (isSite(cleaned)) return cleaned;
+  console.warn(
+    `[site] unknown site ${JSON.stringify((value ?? "").slice(0, 40))}, using ${DEFAULT_SITE}`
+  );
+  return DEFAULT_SITE;
 }
 
 /**

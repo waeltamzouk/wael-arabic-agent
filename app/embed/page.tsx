@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import ChatWidget from "@/app/components/ChatWidget";
 import { siteFromParam } from "@/lib/site";
 
@@ -22,12 +21,12 @@ export async function generateMetadata({
 
 // `?site=templates` is the English templates site's panel. No param is the
 // Arabic one — that is the URL the live waelwebdesign.com snippet already
-// loads, so it must keep meaning Arabic. An unknown value 404s rather than
-// quietly showing the Arabic agent, so a typo in a Framer paste is obvious.
+// loads, so it must keep meaning Arabic. An unknown value ALSO gets the Arabic
+// panel (see siteFromParam) — never a 404, never a crash. The panel then sends
+// no `?site` to /api/chat, so the prompt always matches the panel on screen.
 export default async function EmbedPage({ searchParams }: PageProps<"/embed">) {
   const { site: param } = await searchParams;
   const site = siteFromParam(typeof param === "string" ? param : null);
-  if (!site) notFound();
 
   // `fixed inset-0` and not a normal flex child. GOTCHA: `body` carries
   // `min-h-full` from the shared root layout, so it GROWS with its content —

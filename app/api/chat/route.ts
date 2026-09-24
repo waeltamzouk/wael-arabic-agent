@@ -279,9 +279,9 @@ export async function POST(req: NextRequest) {
   // Which site's agent this is. A QUERY PARAM rather than a body field, so it
   // is known before the body is read and even the very first refusals below
   // can answer in the right language. No param means the Arabic site, which
-  // is what every existing waelwebdesign.com bubble sends.
-  const requestedSite = siteFromParam(req.nextUrl.searchParams.get("site"));
-  const site = requestedSite ?? DEFAULT_SITE;
+  // is what every existing waelwebdesign.com bubble sends, and so does an
+  // unknown value — see siteFromParam.
+  const site = siteFromParam(req.nextUrl.searchParams.get("site"));
 
   // Cheapest check first, and the only one that runs before the body is read.
   if (!isAllowedOrigin(req)) {
@@ -291,10 +291,6 @@ export async function POST(req: NextRequest) {
       notice: "غير مصرح.",
       noticeEn: "Not allowed.",
     }, "blocked_origin", site);
-  }
-
-  if (!requestedSite) {
-    return json(req, { error: "Unknown site." }, 400);
   }
 
   const limited = rateLimit(clientIp(req));
