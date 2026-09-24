@@ -240,6 +240,13 @@ Explain as you go. Ask before big changes.
   launcher `rgb(255, 74, 17)`, icon white, shadow `rgba(255,74,17,.35)`, and
   the behaviour still intact — click opens the panel, the icon swaps to the
   X, `aria-expanded` flips to true and the label to "أغلق المحادثة".
+- LIVE ON waelwebdesign.com, Sep 24, after Wael pasted and published: the
+  launcher measures `rgb(255, 74, 17)` on the real page, opens the panel, and
+  the panel's own إرسال button is the accent too — which is the Vercel deploy
+  and the Framer paste both confirmed in one look.
+- WORTH SEEING: the site is DARK. The orange reads far better against it than
+  the old `#18181b` ever did, which was nearly invisible against a dark page.
+  Nobody planned that; it is the strongest argument for the change.
 - TWO TOKENS, ONE COLOUR, and this is the part worth keeping: `#ff4a11` on
   white is **3.4:1**, which is fine for a solid button or a focus ring (UI
   components need 3:1) but FAILS the 4.5:1 that body text needs. So links —
@@ -1026,6 +1033,11 @@ And for Wael: start a fresh chat at the start of each week's task.
   NOT ask for the details again and did NOT re-request the form. It even
   said Wael would explain the schedule "لما يتواصل معك" — it knew the lead
   was already sent. The confirmation-message mechanism works.
+- LIVE AND CONFIRMED Sep 24 on production: the chat route answers correctly
+  through `https://wael-arabic-agent.vercel.app/api/chat` with the
+  waelwebdesign.com Origin (800 dollars, right answer), and `/api/lead`
+  exists and validates — an empty name returns 400 with the Arabic notice and
+  sends no email, which is the cheapest possible proof the route deployed.
 - The eslint error in `ChatWidget.tsx` (`react-hooks/set-state-in-effect`) is
   PRE-EXISTING and still one error. The restore must happen in an effect —
   reading sessionStorage during the first render is a hydration mismatch —
