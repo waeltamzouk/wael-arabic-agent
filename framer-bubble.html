@@ -16,6 +16,13 @@
   preview. The bubble only appears on the PUBLISHED site. Publish, then open
   the real URL to check it.
 
+  THIS FILE IS NOT DEPLOYED. Pushing to GitHub changes nothing here — the
+  live copy is the text sitting in Framer's Custom Code box. Editing this
+  file only matters once you paste it over that box again and publish.
+
+  The brand colour is --wael-accent at the top of the <style> block, in one
+  place. It matches --accent in app/globals.css; change both together.
+
   The launcher button lives HERE, on the Framer side. The chat panel lives in
   the iframe, on Vercel. That split is deliberate: to put the button inside
   the iframe, the iframe would have to cover the whole screen, and it would
@@ -27,6 +34,13 @@
 </script>
 
 <style>
+  :root {
+    /* The brand accent, same value as --accent in app/globals.css. The one
+       colour on an otherwise plain page, and on the launcher it is doing a
+       job: this button has to be noticed, or nobody opens the chat. */
+    --wael-accent: #ff4a11;
+  }
+
   /* Bottom-LEFT: the conventional side on an RTL Arabic site.
      To move it to the right, swap `left` for `right` in BOTH rules below. */
   #wael-chat-launcher {
@@ -41,10 +55,12 @@
     border-radius: 999px;
     padding: 0;
 
-    background: #18181b;
+    background: var(--wael-accent);
     color: #ffffff;
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    /* Tinted rather than neutral black: a grey shadow under a saturated
+       button reads as dirty. Same hue, low opacity. */
+    box-shadow: 0 8px 24px rgba(255, 74, 17, 0.35);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 
     display: flex;
@@ -54,9 +70,13 @@
 
   #wael-chat-launcher:hover {
     transform: scale(1.06);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 10px 28px rgba(255, 74, 17, 0.45);
   }
 
+  /* The focus ring stays DARK on purpose, and this is not an oversight: a
+     ring has to contrast with the BUTTON it is around, and an orange ring
+     around an orange button is the one colour that cannot do that. Dark
+     works against both the button and a light page. */
   #wael-chat-launcher:focus-visible {
     outline: 3px solid #18181b;
     outline-offset: 3px;

@@ -220,10 +220,26 @@ Explain as you go. Ask before big changes.
   something, and here it means "this is the thing to press".
 - REJECTED: colouring the agent's reply bubbles. A long Arabic reply becomes
   a large block of saturated orange, and it would compete with the button
-  that actually wants the click. Also rejected for now: the floating launcher
-  on the Framer site, which is still `#18181b` in `framer-bubble.html` —
-  that is a one-line change there if Wael wants it later, and it lives on
-  the FRAMER side, so it needs re-pasting and publishing, not a deploy.
+  that actually wants the click.
+- THE FLOATING LAUNCHER got it too, Sep 24, in `framer-bubble.html`:
+  `--wael-accent` at the top of its `<style>`, a tinted shadow
+  (`rgba(255,74,17,.35)`) instead of a neutral black one, and the white icon
+  unchanged. A grey shadow under a saturated button reads as dirty.
+  ONE COLOUR, TWO FILES: `--accent` in `app/globals.css` and `--wael-accent`
+  in the snippet. They cannot share a variable — one is served by Vercel and
+  the other is pasted into Framer — so change both together.
+- The launcher's FOCUS RING stays `#18181b` on purpose and it is not an
+  oversight: a ring has to contrast with the BUTTON it surrounds, and an
+  orange ring around an orange button is the one colour that cannot.
+- REMEMBER WHAT DEPLOYS AND WHAT DOES NOT: pushing `framer-bubble.html` to
+  GitHub changes NOTHING on waelwebdesign.com. The live copy is the text in
+  Framer → Site Settings → General → Custom Code → "End of `<body>` tag".
+  The repo copy is the source of truth for the next paste, nothing more.
+- Verified Sep 24 on a stand-in host page served over localhost (file:// only
+  renders a static snapshot in the preview pane, so it proves nothing):
+  launcher `rgb(255, 74, 17)`, icon white, shadow `rgba(255,74,17,.35)`, and
+  the behaviour still intact — click opens the panel, the icon swaps to the
+  X, `aria-expanded` flips to true and the label to "أغلق المحادثة".
 - TWO TOKENS, ONE COLOUR, and this is the part worth keeping: `#ff4a11` on
   white is **3.4:1**, which is fine for a solid button or a focus ring (UI
   components need 3:1) but FAILS the 4.5:1 that body text needs. So links —
