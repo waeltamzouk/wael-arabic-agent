@@ -69,7 +69,7 @@ const MIN_PHONE_DIGITS = 6;
 // filled the row, and the phone input collapsed to nothing. Width is set per
 // field instead.
 const FIELD_CLASS =
-  "rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 dark:ring-zinc-800 dark:focus:ring-zinc-100";
+  "rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-accent dark:bg-zinc-950 dark:text-zinc-50 dark:ring-zinc-800";
 
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400";
 
@@ -231,7 +231,7 @@ export default function ContactForm({
         <button
           type="submit"
           disabled={sending}
-          className="h-10 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="h-10 rounded-xl bg-accent px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {sending ? t.sending : t.send}
         </button>

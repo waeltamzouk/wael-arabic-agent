@@ -3,11 +3,24 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Brand accent (Wael, Sep 23). The ONE colour in an otherwise grey UI, so
+     it has to mean something: it marks the thing to press. Fills and focus
+     rings only — never a background behind a paragraph. */
+  --accent: #ff4a11;
+
+  /* The same accent, darkened, for accent-coloured TEXT on a light surface.
+     #ff4a11 on white is 3.4:1, which is under the 4.5:1 that body text needs
+     — fine for a solid button or a ring, not for a link inside a sentence.
+     This one is 5.6:1. Two tokens, one brand colour. */
+  --accent-text: #c33000;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
   --font-sans: var(--font-arabic);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,6 +29,10 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* On a near-black surface the brand colour is already 5.7:1, so dark mode
+       needs no darkened variant — it uses the real accent for text too. */
+    --accent-text: #ff4a11;
   }
 }
 

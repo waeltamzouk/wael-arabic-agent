@@ -71,11 +71,12 @@ Explain as you go. Ask before big changes.
       plus 15/15 on routing. The unsubscribe loop is CLOSED too: a real
       broadcast resolved a real unsubscribe URL, the click registered,
       and two further purchases did NOT put him back on either list.
-- [x] W6-T5 (Sep 23): contact form inside the chat. `request_contact`
+- [x] W6-T5 (Sep 23-24): contact form inside the chat. `request_contact`
       replaces `save_lead`, `/api/lead` emails the lead, country dropdown so
-      every number carries its country. Proved against stand-ins and in the
-      browser; the one step left is a LIVE conversation, which needs the
-      Anthropic balance topped up first.
+      every number carries its country. VERIFIED LIVE Sep 24 on a real
+      Arabic conversation, including the follow-up turn that proves Claude
+      does not ask twice. That run also exposed and fixed the milestone
+      parity bug — see "The milestone parity bug".
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -206,6 +207,45 @@ Explain as you go. Ask before big changes.
   `overflow-x-hidden` so nothing can do that again.
 - Verified Sep 21 at 380x600: `horizontalOverflow: 0`, both links real
   anchors, both fitting inside the bubble, slash at the END.
+
+## Accent colour (Sep 23)
+- BRAND ACCENT is `#ff4a11`, given by Wael. Defined ONCE in
+  `app/globals.css` as `--accent`, exposed to Tailwind through
+  `@theme inline` as `--color-accent`, so it is `bg-accent`,
+  `ring-accent`, `text-accent` everywhere. Changing the brand colour is a
+  one-line edit in that file.
+- WHERE IT IS USED, decided deliberately: the composer's إرسال button, the
+  form's إرسال button, the focus ring on every field, and links inside the
+  bubbles. Everything else stays zinc. In a grey UI one colour has to MEAN
+  something, and here it means "this is the thing to press".
+- REJECTED: colouring the agent's reply bubbles. A long Arabic reply becomes
+  a large block of saturated orange, and it would compete with the button
+  that actually wants the click. Also rejected for now: the floating launcher
+  on the Framer site, which is still `#18181b` in `framer-bubble.html` —
+  that is a one-line change there if Wael wants it later, and it lives on
+  the FRAMER side, so it needs re-pasting and publishing, not a deploy.
+- TWO TOKENS, ONE COLOUR, and this is the part worth keeping: `#ff4a11` on
+  white is **3.4:1**, which is fine for a solid button or a focus ring (UI
+  components need 3:1) but FAILS the 4.5:1 that body text needs. So links —
+  which are text inside a sentence — use `--accent-text` (`#c33000`, 5.6:1)
+  instead. In dark mode `--accent-text` is redefined back to the real accent,
+  because on `#0a0a0a` it is already 5.7:1 and needs no help.
+- The BUTTON deliberately keeps the exact brand colour with white text at
+  3.4:1. That is Wael's colour on the most prominent element and it is a
+  normal brand-button tradeoff — but it IS below AA. If it ever needs to
+  pass, change the button to `bg-accent-text`; nothing else has to move.
+- The buttons dropped `dark:bg-zinc-100 dark:text-zinc-900`: the accent is
+  the same in both themes, so a dark-mode inversion would have turned the
+  one branded element grey. Hover is `opacity-90` rather than a second
+  colour, so there is still only one orange in the file.
+- Verified Sep 23 by MEASURING the computed styles, not by looking:
+  both send buttons `rgb(255, 74, 17)`, link `rgb(195, 48, 0)`, focus ring
+  `rgb(255, 74, 17) 0 0 0 2px` on a real click. `pageOverflow: 0` still, at
+  380x600 and on the homepage card.
+- GOTCHA, testing only: a programmatic `element.focus()` read back the
+  UNFOCUSED ring and looked like the accent had not applied at all. A real
+  `computer` click showed the correct 2px accent ring. Do not conclude a
+  `:focus` style is broken from a scripted focus.
 
 ## Business decisions (Sep 14)
 - The agent QUOTES REAL PRICES. It used to refuse and ask for contact
@@ -709,13 +749,15 @@ And for Wael: start a fresh chat at the start of each week's task.
   is stored — counts only. No names, phones or message text ever reach
   Upstash.
 - THE TRICK that makes it work without session tracking: the widget
-  re-sends the WHOLE history every time, so `messages.length` IS the
-  conversation depth, and it is always ODD (the visitor's new line is
-  last). So a conversation passes through 1, 3, 5, 7 … exactly once
-  each, and a milestone is counted by testing for EXACT EQUALITY with a
-  length: 1 = started, 5 = engaged, 11 = qualified. Incrementing on
+  re-sends the WHOLE history every time, so the number of VISITOR
+  messages in it IS the conversation depth. It passes through 1, 2, 3 …
+  exactly once each, and a milestone is counted by testing for EXACT
+  EQUALITY: 1 = started, 3 = engaged, 6 = qualified. Incrementing on
   every request instead would count one 7-turn conversation seven times.
-  Verified: a 3-message request emits NO milestone.
+- SUPERSEDED Sep 24, and read this before "simplifying" it back: it used
+  to count `messages.length` against 1, 5 and 11, which worked ONLY
+  because the total was always ODD — the visitor's new line was last.
+  The contact form broke that invariant. See "The milestone parity bug".
 - `opened` is the one step the API cannot see, because someone who never
   types never sends a request. It is a `sendBeacon` ping to
   `/api/event?name=opened` from the Framer snippet. The event name is a
@@ -777,6 +819,37 @@ And for Wael: start a fresh chat at the start of each week's task.
 - The Upstash error body can echo request details, so it is logged
   server-side only. The page shows the STATUS CODE's meaning, never the
   body, and never any part of the token.
+
+## The milestone parity bug (Sep 24)
+- FOUND IN THE FIRST LIVE RUN after the contact form shipped, by reading the
+  `[funnel]` log rather than by looking at the feature: `started`, `engaged`,
+  `form_shown` and `form_submitted` all fired, and `qualified` NEVER DID,
+  even though the conversation was well past six exchanges.
+- THE CAUSE: `depthMetric` tested `messages.length` for EXACT EQUALITY with
+  1, 5 and 11. That only ever worked because the array was always ODD — the
+  visitor's new line was last. On a successful form submission the widget
+  appends its confirmation message, which has NO visitor line to pair with,
+  so every request after it carries an EVEN count: 12, 14, 16 … 11 is never
+  hit again, by anyone who converts, for the rest of the conversation.
+- WHY IT MATTERED rather than being cosmetic: `qualified` sits ABOVE
+  `form_shown` in the funnel table, so the page would have shown fewer people
+  "qualified" than were shown the form — a funnel that appears to run
+  backwards. The numbers would have been quietly wrong, not obviously broken.
+- THE FIX: count the VISITOR'S messages, not the array length.
+  `messages.filter(m => m.role === "user").length` against 1, 3 and 6 — the
+  same three milestones, since an odd total of 1, 5, 11 is exactly 1, 3 and 6
+  visitor turns. Nothing the app adds to the transcript can knock that out of
+  step, which is the property the old version lacked.
+- Proved 4/4 offline (a plain conversation still hits all three exactly once;
+  a post-form conversation still reaches `qualified`; the old rule provably
+  missed it) and then LIVE: one request shaped like a post-form conversation
+  — 12 messages, 6 from the visitor — logged `[funnel] qualified`, where the
+  old code logged nothing.
+- THE GENERAL LESSON, and it is the third time this file has recorded a
+  version of it: a counter that depends on an INVARIANT holding elsewhere in
+  the app ("the array is always odd") breaks silently the first time anything
+  else touches that array. The feature that broke it was three files away and
+  looked completely unrelated. Prefer a rule that reads the data directly.
 
 ## Direction, decided Sep 22
 - THE BUSINESS GOAL, stated plainly: Framer design + an Arabic AI agent +
@@ -923,9 +996,20 @@ And for Wael: start a fresh chat at the start of each week's task.
     Dismiss clears it permanently and leaves the composer usable.
   - ONE REAL EMAIL was sent, deliberately addressed to Wael's own WhatsApp
     number (+90 537 763 44 37) so the wa.me link in it is safe to tap.
-- STILL TO DO BY HAND: a live conversation once the Anthropic balance is
-  topped up, to watch Claude actually decide to call `request_contact`. That
-  is the one step no stand-in can prove.
+- DONE Sep 24, the step no stand-in could prove: with the balance topped up,
+  a REAL Arabic conversation was held against the live route. Claude asked
+  all five qualifying questions one at a time, NEVER asked for a name or a
+  number in words, and called `request_contact` after the fifth answer with
+  every note filled from the conversation — `business` "مطعم مأكولات بحرية
+  في جدة، ثلاثة فروع", `budget` "1500 دولار", `timeline` "شهر تقريباً",
+  `quality` "hot". The transcript was then driven through the real widget:
+  the form appeared, was filled and sent (200, a real lead email), and the
+  confirmation replaced it.
+- AND THE FOLLOW-UP, which is the part worth having tested: the visitor
+  asked another question afterwards and Claude answered it normally, did
+  NOT ask for the details again and did NOT re-request the form. It even
+  said Wael would explain the schedule "لما يتواصل معك" — it knew the lead
+  was already sent. The confirmation-message mechanism works.
 - The eslint error in `ChatWidget.tsx` (`react-hooks/set-state-in-effect`) is
   PRE-EXISTING and still one error. The restore must happen in an effect —
   reading sessionStorage during the first render is a hydration mismatch —

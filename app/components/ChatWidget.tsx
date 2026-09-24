@@ -365,12 +365,12 @@ export default function ChatWidget({ variant = "card" }: Props) {
           dir="auto"
           placeholder="اكتب رسالتك…"
           aria-label="اكتب رسالتك"
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-900 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-100"
+          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-accent dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500"
         />
         <button
           type="submit"
           disabled={loading || input.trim().length === 0}
-          className="h-11 shrink-0 rounded-xl bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="h-11 shrink-0 rounded-xl bg-accent px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           إرسال
         </button>
@@ -406,7 +406,7 @@ function linkify(text: string) {
         // Polar checkout links are ~70 unbroken characters. Without break-all
         // they overflow the bubble and force the whole panel to scroll
         // sideways. inline-block keeps the wrapped lines together.
-        className="inline-block break-all underline underline-offset-2 [unicode-bidi:isolate]"
+        className="inline-block break-all text-accent-text underline underline-offset-2 [unicode-bidi:isolate]"
       >
         {part}
       </a>

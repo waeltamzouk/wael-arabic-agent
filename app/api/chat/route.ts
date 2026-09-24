@@ -261,11 +261,18 @@ export async function POST(req: NextRequest) {
     const language = languageOf(messages);
     const system = systemFor(language);
 
-    // Funnel milestones. `depthMetric` only returns a value at exact lengths a
+    // Funnel milestones. `depthMetric` only returns a value at exact depths a
     // conversation passes through once, so this counts each conversation once
     // per milestone without storing anything about who it was. Language is
     // recorded only at the first message, so one conversation counts once.
-    const milestone = depthMetric(messages.length);
+    //
+    // Counts the VISITOR'S messages, not the array length: the widget appends
+    // its own confirmation message after the contact form, which would
+    // otherwise knock every later request off the odd/even step the old
+    // version depended on. See depthMetric.
+    const milestone = depthMetric(
+      messages.filter((m) => m.role === "user").length
+    );
     if (milestone) {
       record(
         milestone,

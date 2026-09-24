@@ -143,25 +143,35 @@ export function record(...metrics: string[]) {
 }
 
 /**
- * Milestones, by exact conversation length.
+ * Milestones, by how many times the VISITOR has spoken.
  *
- * The widget always sends an ODD number of messages — the visitor's new line is
- * last — so a conversation passes through 1, 3, 5, 7 … exactly once each.
- * Testing for equality is what makes this count each conversation once without
- * storing anything about it. Incrementing on every request instead would count
- * one 7-turn conversation seven times.
+ * A conversation passes through 1, 2, 3 … exactly once each, so testing for
+ * equality counts each conversation once per milestone without storing
+ * anything about it. Incrementing on every request instead would count one
+ * 7-turn conversation seven times.
  *
- *   1  → they sent a first message at all
- *   5  → three exchanges deep, past the opening question
- *   11 → six exchanges deep, which is roughly the qualifying questions done
+ *   1 → they sent a first message at all
+ *   3 → three exchanges deep, past the opening question
+ *   6 → six exchanges deep, which is roughly the qualifying questions done
  *
- * CAVEAT: a visitor who retries a failed request at the same length is counted
+ * THIS USED TO COUNT THE WHOLE ARRAY (1, 5, 11), which worked only because
+ * the total was always ODD — the visitor's new line was last. The contact
+ * form broke that: on success the widget appends a confirmation message with
+ * no visitor line to pair with, the total goes EVEN, and `qualified` at
+ * exactly 11 could never fire again. Found in the first live run after the
+ * form shipped, Sep 24. Counting the visitor's own turns cannot be knocked
+ * out of step by anything the app adds to the transcript.
+ *
+ * The thresholds are the same milestones as before: an odd total of 1, 5, 11
+ * is exactly 1, 3 and 6 visitor messages.
+ *
+ * CAVEAT: a visitor who retries a failed request at the same depth is counted
  * twice at that milestone. Retries are rare and this is a trend, not an audit.
  */
-export function depthMetric(messageCount: number): string | null {
-  if (messageCount === 1) return "started";
-  if (messageCount === 5) return "engaged";
-  if (messageCount === 11) return "qualified";
+export function depthMetric(visitorMessageCount: number): string | null {
+  if (visitorMessageCount === 1) return "started";
+  if (visitorMessageCount === 3) return "engaged";
+  if (visitorMessageCount === 6) return "qualified";
   return null;
 }
 
