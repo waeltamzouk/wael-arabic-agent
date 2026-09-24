@@ -166,6 +166,16 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
   const [lead, setLead] = useState<LeadState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // The panel owns its whole iframe document, so it owns <html lang/dir> too.
+  // The root layout hardcodes Arabic RTL for the homepage, and without this
+  // the English panel's document still announced itself as Arabic to screen
+  // readers and translators even though every word on it is English.
+  useEffect(() => {
+    if (!isPanel) return;
+    document.documentElement.lang = t.lang;
+    document.documentElement.dir = t.dir;
+  }, [isPanel, t.lang, t.dir]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

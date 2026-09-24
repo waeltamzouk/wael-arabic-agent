@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { EN_TEMPLATES_DIRECTIVES, promptFor } from "@/lib/prompts";
+import { EN_TEMPLATES_DIRECTIVE, promptFor } from "@/lib/prompts";
 import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
 import { depthMetric, record } from "@/lib/stats";
 import {
@@ -148,8 +148,8 @@ export async function OPTIONS(req: NextRequest) {
 // code. Detecting the script is deterministic, and the directive is written in
 // ENGLISH on purpose — in a mostly-Arabic prompt it stands out.
 //
-// `tie` is what a message with no letters at all ("30", "?") counts as: Arabic
-// on the Arabic site, English on the English one.
+// `tie` is what a message with no letters at all ("30", "?") counts as. Only
+// the Arabic site calls this — the English site is pinned to English.
 function detectLanguage(text: string, tie: "ar" | "en" = "ar"): "ar" | "en" {
   const arabic = (text.match(/[\u0600-\u06FF]/g) ?? []).length;
   const latin = (text.match(/[A-Za-z]/g) ?? []).length;
@@ -219,10 +219,13 @@ const ARABIC_DIRECTIVE = `
 جديداً ولا قالباً جاهزاً، أو أي نوع موقع يفكر فيه. السؤال المحدد مطلوب،
 والسؤال العام عن كيف تقدر تساعده ممنوع.`;
 
+// The English templates site is ENGLISH ONLY — Wael's call, Sep 24. It never
+// follows the visitor's script, so the reply, the fallback text and the funnel
+// counter are all English there. Only the Arabic site switches.
 function languageOf(messages: ChatMessage[], site: Site): "ar" | "en" {
-  const fallback = site === DEFAULT_SITE ? "ar" : "en";
+  if (site !== DEFAULT_SITE) return "en";
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  return lastUser ? detectLanguage(lastUser.content, fallback) : fallback;
+  return lastUser ? detectLanguage(lastUser.content, "ar") : "ar";
 }
 
 // TWO BLOCKS, NOT ONE STRING, and the split is the entire point.
@@ -261,13 +264,13 @@ function systemFor(site: Site, language: "ar" | "en"): Anthropic.TextBlockParam[
       type: "text",
       // The directives are site-specific too: the Arabic site's name Wael's
       // template pages and "the six templates", which do not exist on the
-      // English site.
+      // English site. The English site has ONE directive — it never switches.
       text:
         site === DEFAULT_SITE
           ? language === "en"
             ? ENGLISH_DIRECTIVE
             : ARABIC_DIRECTIVE
-          : EN_TEMPLATES_DIRECTIVES[language],
+          : EN_TEMPLATES_DIRECTIVE,
     },
   ];
 }

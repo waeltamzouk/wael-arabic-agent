@@ -1,13 +1,13 @@
 import type { Site } from "@/lib/site";
 import { SYSTEM_PROMPT as AR_WAELWEBDESIGN } from "./ar-waelwebdesign";
 import {
-  DIRECTIVES as EN_TEMPLATES_DIRECTIVES,
+  DIRECTIVE as EN_TEMPLATES_DIRECTIVE,
   SYSTEM_PROMPT as EN_TEMPLATES,
 } from "./en-templates";
 
 // SERVER ONLY. Never import this from a client component — see lib/site.ts.
 
-export { EN_TEMPLATES_DIRECTIVES };
+export { EN_TEMPLATES_DIRECTIVE };
 
 const PROMPTS: Record<Site, string> = {
   waelwebdesign: AR_WAELWEBDESIGN,

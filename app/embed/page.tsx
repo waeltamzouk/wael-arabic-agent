@@ -7,11 +7,15 @@ export async function generateMetadata({
   searchParams,
 }: PageProps<"/embed">): Promise<Metadata> {
   const { site } = await searchParams;
+  const english =
+    siteFromParam(typeof site === "string" ? site : null) === "templates";
   return {
-    title:
-      siteFromParam(typeof site === "string" ? site : null) === "templates"
-        ? "Wael's template assistant"
-        : "مساعد وائل",
+    title: english ? "Wael's template assistant" : "مساعد وائل",
+    // Overrides the root layout's Arabic description, which would otherwise
+    // ride along into the English panel.
+    ...(english
+      ? { description: "Ask about Wael Tamzouk's Framer templates." }
+      : {}),
     robots: { index: false, follow: false },
   };
 }

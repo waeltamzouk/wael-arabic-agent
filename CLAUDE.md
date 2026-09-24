@@ -1050,8 +1050,9 @@ And for Wael: start a fresh chat at the start of each week's task.
 
 ## The two sites are SEPARATE (Sep 22)
 - `waelwebdesign.com` — Arabic, services + six templates, own clients.
-- `waeltamzouk.framer.ai` — English, templates only, SEVEN templates,
-  four free, $99 single, $149 All Access. Own clients.
+- `waeltamzouk.framer.ai` — English, templates only, SIX templates
+  (Monaro dropped Sep 24), three free, $99 single, $149 All Access
+  (one-time). Own clients. English ONLY, prompt and bubble.
 - They are NOT the same catalogue and must never be reconciled into one.
   Claude flagged the difference as a "trust bug" on Sep 22; it is not.
   Each agent knows its own site's catalogue and nothing else.
@@ -1093,11 +1094,59 @@ And for Wael: start a fresh chat at the start of each week's task.
   own storage key, stub prompt refused to invent a price. Arabic panel:
   RTL, `rgb(255,74,17)`, request has NO `?site`, `كم سعر صفحة هبوط؟`
   answered 800. Bogus site: embed 404, api 400, event 400.
-- NOT DONE, in order: (1) the real English prompt — the catalogue from
-  Wael, not crawled off the site (see the page-tree gotcha); (2) the email
-  tool for the 30% code → Resend Audience; (3) templates rows on /stats;
-  (4) paste `framer-bubble-en.html` into waeltamzouk.framer.ai. Do NOT
-  paste before (1): the stub only says "details aren't available yet".
+- DONE W7-T2 (Sep 24): the real English prompt in `en-templates.ts`.
+  SOURCE: the waeltamzouk.framer.ai Framer project via the Framer MCP (Wael
+  pointed at it), NOT the live site or demos. Templates CMS collection =
+  names, prices, preview + Polar links, "Pages included". Pricing Card +
+  FAQ Home + FAQ Support components = All Access and every policy. CMS
+  counts only where the template's own CMS description states them.
+- The six (Wael, Sep 24): Pillarum, Narric, Pulsai ($99); Navarro,
+  Boldcore, Nokta (free). Monaro is DROPPED — ignore it even though it is
+  still a draft in the CMS. Navarro is being published but its CMS item has
+  NO page list and NO preview URL yet, so the agent says it doesn't know its
+  pages and gives the preview (`navarro.framer.website`, from the Arabic
+  prompt). Fill in its pages once Wael adds them. Default link is
+  `waeltamzouk.framer.ai/templates/<slug>` (confirmed by Wael); Polar only
+  on an explicit ask.
+- GOTCHA: All Access uses the CHECKOUT LINK
+  `buy.polar.sh/polar_cl_n8wG…`, not a `polar.sh/checkout/polar_c_…` URL.
+  A `polar_c_` URL is ONE checkout session with an `expires_at` (the one Wael
+  pasted expired Sep 25); the `polar_cl_` link mints a fresh session on every
+  click. Verified both are the same product, 149 dollars. If Wael pastes a
+  `polar_c_` link again, it came from the browser bar mid-checkout.
+- NO CUSTOMIZATION SERVICE on this site for now (Wael, Sep 24, "maybe
+  later"). The agent says it isn't offered and the templates are built to
+  be customized in Framer without code. Note the site's own Support FAQ
+  still says "we can discuss a separate project" — that copy is out of date.
+- This site's policies are its OWN, not the Arabic ones: email support on
+  EVERY template (free too), priority support on All Access, and the paid
+  Framer plan is needed for custom domain AND CMS. No reselling rule.
+- ENGLISH ONLY (Wael, Sep 24): `languageOf` returns "en" for any non-default
+  site, and `en-templates.ts` exports ONE `DIRECTIVE`, not an ar/en pair.
+  So `templates_lang_ar` never counts. Verified: an Arabic question got an
+  English answer.
+- The 30% code is `FRAMER30` (Wael, Sep 24): every paid purchase, single
+  templates and All Access, once per customer, not on free templates. For
+  now the agent GIVES IT FREELY — when asked, and once when it recommends
+  a premium template or All Access. When the email tool exists, decide
+  whether the code moves behind the email.
+- GOTCHA: the "mention the code when you recommend" rule sat in the prompt
+  body and the model skipped it 2 of 3 times. Moved to the per-reply
+  `DIRECTIVE` (recency, same story as the greeting ban): 3 of 3, never on
+  a free template, and not repeated once given.
+- The English panel's DOCUMENT is English too: the root layout hardcodes
+  `<html lang="ar" dir="rtl">` plus an Arabic meta description, so
+  `ChatWidget` (panel only) sets `<html lang/dir>` from its `UI` entry and
+  `/embed` overrides the description. Verified: zero Arabic characters in
+  the English panel's markup; the Arabic panel still `ar`/`rtl`.
+- Verified on localhost: 14 questions, then 7 more after the six-template
+  change (customization, free list, Navarro, All Access buy, Monaro, an
+  Arabic question): all English, no greeting, no markdown, no "download",
+  Polar only when asked to buy, no form, Monaro unknown. Cache: write 2,949
+  then read 2,949. Arabic site still answers 800.
+- NOT DONE, in order: (1) Navarro's page list, from Wael; (2) the email
+  tool → Resend Audience; (3) templates rows on /stats; (4) paste
+  `framer-bubble-en.html` into waeltamzouk.framer.ai.
 - The English site's "Take the quiz" button is currently DEAD — it goes
   nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
   building and recommends a template is a conversation wearing a form's
