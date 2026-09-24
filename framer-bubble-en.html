@@ -2,14 +2,15 @@
   THE ENGLISH SITE'S BUBBLE — waeltamzouk.framer.ai ONLY.
   The Arabic site uses framer-bubble.html. Never paste this one there.
 
-  DO NOT PASTE YET: the English prompt (lib/prompts/en-templates.ts) is a stub
-  with no catalogue in it. Paste this once that prompt is written and tested.
-
   Differences from framer-bubble.html, and nothing else:
     - the iframe loads /embed?site=templates (the English agent)
     - the "opened" counter is sent with &site=templates, so it lands in
       templates_opened and never in the Arabic funnel
     - bottom-RIGHT, English labels, and this site's orange, #ff3801
+    - lifted above Framer's "Made in Framer" badge (see the <style> block)
+    - its own sessionStorage keys (wael-chat:templates:…)
+    - every "Take the quiz" button on the site opens the chat. The agent IS
+      the quiz. See QUIZ_TEXT in the last <script>.
 
   WHERE: Framer → Site Settings (the gear) → General → Custom Code →
          "End of <body> tag" → paste ALL of this → Publish.
@@ -52,11 +53,19 @@
     --wael-accent: #ff3801;
   }
 
-  /* Bottom-RIGHT: the conventional side on an LTR English site. */
+  /* Bottom-RIGHT: the conventional side on an LTR English site.
+
+     LIFTED to 72px because this site shows Framer's "Made in Framer" badge
+     in the same corner: 20px from the bottom, 38px tall, and ALWAYS drawn on
+     top of everything. At 24px it covered the bottom of this button. 72px
+     leaves a 14px gap above the badge, and right: 20px lines the button up
+     with the badge's right edge.
+     If the badge is ever turned off, go back to 24px here and 96px on the
+     panel, and calc(100vh - 140px) for its height. */
   #wael-chat-launcher {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 72px;
+    right: 20px;
     z-index: 2147483000;
 
     width: 60px;
@@ -99,12 +108,17 @@
 
   #wael-chat-panel {
     position: fixed;
-    bottom: 96px;
-    right: 24px;
-    z-index: 2147483000;
+    bottom: 144px;
+    right: 20px;
+    /* The highest layer there is, same as the Framer badge. On a phone the
+       panel fills the screen and the badge would otherwise sit on top of the
+       Send button. Equal layers go to whatever comes later in the page, and
+       this snippet comes after the badge. The badge is back as soon as the
+       chat is closed. */
+    z-index: 2147483647;
 
     width: 380px;
-    height: min(600px, calc(100vh - 140px));
+    height: min(600px, calc(100vh - 168px));
 
     border: 0;
     border-radius: 18px;
@@ -134,10 +148,6 @@
       width: 100%;
       height: 100%;
       border-radius: 0;
-    }
-    #wael-chat-launcher {
-      bottom: 16px;
-      right: 16px;
     }
   }
 </style>
@@ -178,7 +188,10 @@
     // remembers its own messages, on the Vercel side.
     // sessionStorage here is FIRST-party (your own domain), so it is reliable
     // even in browsers that block third-party storage.
-    var OPEN_KEY = "wael-chat:open";
+    //
+    // Keys start with wael-chat:templates: so they can never be mistaken for
+    // the Arabic site's wael-chat:open, even on the same browser.
+    var OPEN_KEY = "wael-chat:templates:open";
 
     function remember(isOpen) {
       try {
@@ -220,7 +233,7 @@
     // from, which is exactly what happens when someone clicks a link in the
     // chat. No body and no custom headers, so the browser sends it as a simple
     // request with no CORS preflight. Nothing about the visitor is sent.
-    var COUNT_KEY = "wael-chat:counted";
+    var COUNT_KEY = "wael-chat:templates:counted";
 
     function countOpen() {
       try {
@@ -244,6 +257,36 @@
       if (!open) countOpen();
       setOpen(!open);
     });
+
+    // "Take the quiz" opens the chat. The agent IS the quiz: its first line
+    // already asks what you are building, and it recommends ONE template.
+    //
+    // The button is a Framer link with no destination, and it sits in more
+    // than one place (hero, footer). So this listens on the whole page and
+    // recognises the button by its TEXT. A listener on the button itself would
+    // be lost, because Framer redraws the page after it loads.
+    //
+    // If the button is ever renamed in Framer, change QUIZ_TEXT to match
+    // (lowercase). The length check stops a big card or section that merely
+    // CONTAINS these words from being taken over.
+    var QUIZ_TEXT = "take the quiz";
+
+    document.addEventListener(
+      "click",
+      function (event) {
+        var link = event.target.closest && event.target.closest("a, button");
+        if (!link || link === launcher) return;
+        var text = link.textContent.trim().toLowerCase();
+        if (text.indexOf(QUIZ_TEXT) === -1 || text.length > 60) return;
+
+        event.preventDefault();
+        if (!open) {
+          countOpen();
+          setOpen(true);
+        }
+      },
+      true
+    );
 
     // The X inside the panel. The panel cannot hide itself — it is the parent
     // page that shows and hides it — so it asks by postMessage.

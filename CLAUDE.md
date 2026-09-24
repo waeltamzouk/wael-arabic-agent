@@ -1201,7 +1201,8 @@ And for Wael: start a fresh chat at the start of each week's task.
   Arabic question): all English, no greeting, no markdown, no "download",
   Polar only when asked to buy, no form, Monaro unknown. Cache: write 2,949
   then read 2,949. Arabic site still answers 800.
-- NOT DONE: paste `framer-bubble-en.html` into waeltamzouk.framer.ai.
+- LIVE (W7-T5, Sep 24): `framer-bubble-en.html` pasted into
+  waeltamzouk.framer.ai. See "W7-T5 — the English bubble" below.
   (Navarro, the email tool: DONE above. Templates rows on /stats: DONE in
   W7-T3.)
 - DONE W7-T3 (Sep 24): the fallback, and /stats per site.
@@ -1235,8 +1236,8 @@ And for Wael: start a fresh chat at the start of each week's task.
     and a second `next dev` in the SAME folder fights over `.next`. Copy the
     project to the scratchpad (`cp -cR node_modules` is an instant APFS clone;
     a symlinked node_modules breaks Turbopack) and run it on another port.
-- The English site's "Take the quiz" button is currently DEAD — it goes
-  nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
+- The English site's "Take the quiz" button WAS DEAD — it went
+  nowhere. Wired in W7-T5 (see below). DECIDED: the agent IS the quiz. A quiz that asks what you are
   building and recommends a template is a conversation wearing a form's
   clothes, and the agent already does template matching. A form gives you
   an email; a conversation tells you WHY they came.
@@ -1247,6 +1248,52 @@ And for Wael: start a fresh chat at the start of each week's task.
   so the English agent needs its own tool, NOT `save_lead`.
 - The 30% discount code exists in Polar. Never promise a discount that
   404s at checkout — same failure mode as a dead Polar link.
+
+## W7-T5 — the English bubble (Sep 24)
+- `framer-bubble-en.html`, pasted by Wael into waeltamzouk.framer.ai →
+  Site Settings → General → Custom Code → "End of <body> tag". Same split
+  as the Arabic one: button on Framer, panel is `/embed?site=templates`.
+- Bottom-RIGHT (LTR convention), English aria-labels, and its own
+  sessionStorage keys `wael-chat:templates:open` / `:counted`. (The
+  Framer-side keys could not actually collide across the two domains —
+  sessionStorage is per origin — but the prefix makes it unmistakable. The
+  keys that COULD collide are the chat's own, on vercel.app, and those were
+  already per site.)
+- "Take the quiz" is a Framer link with NO href, in the hero AND the
+  footer. The snippet listens for clicks on the whole document (capture
+  phase) and matches any `a`/`button` whose text contains
+  `QUIZ_TEXT = "take the quiz"` and is under 60 chars. It only ever OPENS,
+  never toggles, and counts as "opened" like the launcher. No Framer edit
+  needed. If Wael renames the button, change `QUIZ_TEXT`.
+- GOTCHA: this site shows Framer's "Made in Framer" badge bottom-right,
+  20px up, 38px tall, at z-index `calc(infinity)` — it ALWAYS wins. At the
+  Arabic snippet's `bottom: 24px` it covered the launcher, and on a phone
+  it sat over the full-screen panel's Send button. Fix: launcher at
+  `bottom: 72px; right: 20px` (14px above the badge, right edges aligned),
+  panel at `bottom: 144px`, and the panel's z-index is 2147483647 — equal
+  to the badge, and the snippet comes later in the page, so the open panel
+  wins. The badge is not hidden; it is back when the chat closes. If the
+  badge is ever turned off, restore 24/96/140.
+- Verified Sep 24 by injecting the snippet into the LIVE
+  waeltamzouk.framer.ai page in Claude's browser (sendBeacon stubbed, so
+  the funnel was NOT touched): hero and footer quiz buttons open the
+  panel, a second click keeps it open, one "opened" beacon with
+  `&site=templates`, X closes (postMessage from vercel.app), Escape closes,
+  English welcome line, 1280x800 launcher clear of the badge, 375x812 panel
+  full screen and on top of the badge.
+- LIVE Sep 24: Wael pasted and published. Verified on the real
+  waeltamzouk.framer.ai: snippet present once, `SITE` = templates, hero
+  "Take the quiz" opened the panel with `/embed?site=templates` and the
+  `wael-chat:templates:*` keys, English welcome line. (This click sent ONE
+  real "opened" beacon — one of the first templates_opened counts is
+  Claude's test.) Typing inside the iframe failed in Claude's browser (see
+  "Testing the bubble with Claude's browser tools"), so the agent was
+  checked by curl with `Origin: https://waeltamzouk.framer.ai`: "I run a
+  small AI startup" → asked what it does + whether it blogs → "AI sales
+  emails, yes a blog" → recommended Pulsai with the
+  waeltamzouk.framer.ai/templates/pulsai link and offered 30% for an email.
+  Quiz behaviour correct. STILL TO DO BY HAND: one real message typed in
+  the panel on a phone, and pressing Enter once.
 
 ## Polar buyers → mailing list (Sep 22)
 - Wael already has buyer emails sitting in the Polar dashboard, unused.
