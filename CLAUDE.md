@@ -1316,7 +1316,18 @@ And for Wael: start a fresh chat at the start of each week's task.
 - FIX THE BLIND SPOT: turn on auto-reload in Anthropic billing, and
   consider a one-off email (via the Resend setup that already exists)
   the first time the route sees a billing error.
-- PROMPT CACHING is the highest-value technical change left. The ~9,100
+- PROMPT CACHING IS DONE (Sep 24) and MEASURED against the real API:
+  the cached block is 9,382 tokens. First message writes it, every later
+  message in that conversation reads it instead of re-sending.
+  A 10-message conversation: ~93,800 prompt tokens before, ~20,000
+  billed-equivalent after — roughly 78% off, so a full qualifying
+  conversation drops from about $0.28 of prompt cost to about $0.06.
+  `systemFor()` now returns TWO blocks instead of one string: the fixed
+  prompt with `cache_control: {type:"ephemeral"}`, then the language
+  directive outside it. Concatenating them would make the cached text
+  differ between an Arabic and an English visitor and never hit.
+  Below is the original note, kept because the reasoning still holds.
+- PROMPT CACHING was the highest-value technical change left. The ~9,100
   token prompt is byte-identical every request. It does NOT affect
   quality — the model receives identical tokens, caching only skips
   re-processing them — and it makes replies FASTER.

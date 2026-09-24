@@ -208,11 +208,40 @@ function languageOf(messages: ChatMessage[]): "ar" | "en" {
   return lastUser ? detectLanguage(lastUser.content) : "ar";
 }
 
-function systemFor(language: "ar" | "en") {
-  return (
-    SYSTEM_PROMPT +
-    (language === "en" ? ENGLISH_DIRECTIVE : ARABIC_DIRECTIVE)
-  );
+// TWO BLOCKS, NOT ONE STRING, and the split is the entire point.
+//
+// The prompt is ~9,000 tokens of Arabic and it was re-sent in full on every
+// message — a ten-message conversation paid for it ten times. Caching makes
+// Anthropic keep it for a few minutes so the rest of the conversation reads it
+// cheaply instead of re-sending it.
+//
+// THE CATCH THAT MAKES THIS FIDDLY: a cache hit needs the cached part to be
+// BYTE-IDENTICAL every time. The per-reply language directive is appended to
+// the prompt, and it differs between an Arabic and an English visitor — so
+// concatenating them into one string means the cache never matches and the
+// whole thing is pointless. The breakpoint has to sit BETWEEN them: the long
+// fixed prompt is cached, the short directive rides outside it.
+//
+// Tools are cached too. They sit before `system` in Anthropic's cache order,
+// so a breakpoint on the system block covers the tool definition as well.
+//
+// HONEST LIMIT: a cache WRITE costs about 1.25x a normal read, and the cache
+// expires after about five minutes. So the win is WITHIN one conversation —
+// one write, then cheap reads. A lone visitor an hour is roughly break-even;
+// a busy day is a real saving. It changes nothing about the answers: the model
+// receives identical tokens either way, caching only skips re-processing them.
+function systemFor(language: "ar" | "en"): Anthropic.TextBlockParam[] {
+  return [
+    {
+      type: "text",
+      text: SYSTEM_PROMPT,
+      cache_control: { type: "ephemeral" },
+    },
+    {
+      type: "text",
+      text: language === "en" ? ENGLISH_DIRECTIVE : ARABIC_DIRECTIVE,
+    },
+  ];
 }
 
 export async function POST(req: NextRequest) {
