@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { DISCOUNT_TOOL, unlockDiscount } from "@/lib/discount";
+import { DISCOUNT_TOOL, isFirstOffer, unlockDiscount } from "@/lib/discount";
 import { EN_TEMPLATES_DIRECTIVE, promptFor } from "@/lib/prompts";
 import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
 import { depthMetric, record } from "@/lib/stats";
@@ -380,7 +380,10 @@ export async function POST(req: NextRequest) {
         : null;
 
     if (toolUse) {
-      record(siteMetric(site, unlock ? unlock.metric : "form_shown"));
+      record(
+        siteMetric(site, unlock ? unlock.metric : "form_shown"),
+        ...(unlock?.ok && unlock.listFailed ? [siteMetric(site, "discount_list_failed")] : [])
+      );
 
       final = await anthropic.messages.create({
         model: MODEL,
@@ -427,6 +430,13 @@ export async function POST(req: NextRequest) {
     // slip on is backed by code that cannot.
     if (unlock?.ok && !reply.includes(unlock.code)) {
       reply = `${reply}\n\nYour code is ${unlock.code}: 30% off any premium template or All Access at checkout.`.trim();
+    }
+
+    // The English site's twin of `form_shown`: the first time the deal is put
+    // in front of the visitor. Paired with `discount_unlocked` on /stats, the
+    // gap is how many people saw the offer and kept their email.
+    if (site !== DEFAULT_SITE && isFirstOffer(messages, reply)) {
+      record(siteMetric(site, "discount_offered"));
     }
 
     // The widget throws on an empty reply, so never return one.

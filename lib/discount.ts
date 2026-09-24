@@ -52,7 +52,38 @@ function isEmail(value: unknown): value is string {
 
 export type Unlock =
   | { ok: false; metric: "discount_bad_email" | "discount_no_code"; result: string }
-  | { ok: true; metric: "discount_unlocked"; code: string; list: Outcome; result: string };
+  | {
+      ok: true;
+      metric: "discount_unlocked";
+      code: string;
+      list: Outcome;
+      /** Resend did not take the address (down, or the audience id missing). */
+      listFailed: boolean;
+      result: string;
+    };
+
+// The deal as the model is told to phrase it ("30% off"). Used only to COUNT
+// offers for /stats, never to decide anything the visitor sees.
+const OFFER = /30\s?(%|percent)/i;
+
+/**
+ * True for the FIRST reply in a conversation that mentions the 30% deal — the
+ * English site's twin of `form_shown`. The history comes with every request,
+ * so "first" needs no storage: no earlier assistant message may mention it.
+ *
+ * A reply that hands over the code counts too (the route appends "30% off"),
+ * so a visitor who types an email before being offered still counts as
+ * offered, and `discount_unlocked` can never exceed `discount_offered`.
+ */
+export function isFirstOffer(
+  history: { role: string; content: string }[],
+  reply: string
+): boolean {
+  return (
+    OFFER.test(reply) &&
+    !history.some((m) => m.role === "assistant" && OFFER.test(m.content))
+  );
+}
 
 export function discountCode(): string | undefined {
   return process.env.DISCOUNT_CODE_EN?.trim() || undefined;
@@ -65,6 +96,18 @@ export function discountCode(): string | undefined {
  * visitor kept their side of the deal; a Resend outage is ours, and
  * `addBuyer` already logs the address on failure so it can be added by hand.
  * The only refusal is an address that is not an address.
+ *
+ * WHY RESEND BEING DOWN CAN NEVER STRAND A VISITOR: the code is shown IN THE
+ * CHAT, from the env var, and is never emailed. Resend only decides whether
+ * they join the list. So the one thing the tool result changes on a failure
+ * is that the model must not promise emails about new templates — they are
+ * not on the list, so none would come. `listFailed` is what /stats counts.
+ *
+ * SOMEONE ALREADY ON THE LIST (a Polar buyer, or a second chat) gets the code
+ * again, with the exact same reply. Decided W7-T4: Polar enforces "once per
+ * customer" at checkout, so a repeat costs nothing, and a different reply
+ * would tell whoever typed the address that it bought from Wael — which is
+ * not ours to confirm to a stranger in a chat box.
  *
  * An address that previously UNSUBSCRIBED still gets the code and stays
  * unsubscribed — `addBuyer` never resubscribes anyone.
@@ -102,11 +145,18 @@ export async function unlockDiscount(input: unknown): Promise<Unlock> {
     orderId: "chat",
   });
 
+  const listFailed = list === "failed" || list === "disabled";
+
   return {
     ok: true,
     metric: "discount_unlocked",
     code,
     list,
-    result: `Saved. The discount code is ${code}. Give it to the visitor now in one or two short sentences: 30% off any premium template or All Access at checkout, once per customer. Mention that Wael may email them about new template releases, and every email has an unsubscribe link. Do not thank them at length.`,
+    listFailed,
+    result: `The discount code is ${code}. Give it to the visitor now in one or two short sentences: 30% off any premium template or All Access at checkout, once per customer. The code is shown here in the chat and is NOT emailed, so never say it was sent to their inbox. ${
+      listFailed
+        ? "Do not mention any mailing list or future emails."
+        : "Mention that Wael may email them about new template releases, and every email has an unsubscribe link."
+    } Do not thank them at length.`,
   };
 }

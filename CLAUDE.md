@@ -1142,12 +1142,42 @@ And for Wael: start a fresh chat at the start of each week's task.
   - A valid email always gets the code, even if Resend fails (logged with
     the address). The route appends the code if Claude's reply omits it.
   - Counters: `templates_discount_unlocked`, `_bad_email`, `_no_code`
-    (`_no_code` = the env var is missing; should be 0).
+    (`_no_code` = the env var is missing; should be 0). W7-T4 added
+    `_offered` and `_list_failed` — see below.
   - GOTCHA: "offer the deal when you recommend" skipped 2 of 3 times from the
     prompt body; it only held from the per-reply `DIRECTIVE` (recency, same
     as the greeting ban). Now 3 of 3, once per conversation.
   - Test contact `delivered@resend.dev` (Resend's own test address) was added
     to the English Audience on Sep 24 while testing. Safe to delete.
+- DONE W7-T4 (Sep 24): the email-for-code step, finished.
+  - REUSED, not rebuilt: `unlock_discount` calls `addBuyer` with
+    `RESEND_AUDIENCE_ID_EN` and `source: "chat"`. ONE list for English buyers
+    AND code-seekers, told apart by `source` in a Resend segment. This
+    SUPERSEDES the Sep 22 note under "Polar buyers" that said they need
+    their own list.
+  - ALREADY ON THE LIST (a Polar buyer, or a second chat): gets the code
+    again, same reply word for word. Polar enforces once per customer at
+    checkout, so a repeat costs nothing; and a different reply would tell
+    whoever typed the address that it bought from Wael. Their contact is
+    left exactly as it was, unsubscribed included.
+  - RESEND DOWN: the code is shown IN THE CHAT from the env var and is never
+    emailed, so it cannot fail to arrive. Resend only decides list
+    membership. On `failed`/`disabled` the tool result tells Claude NOT to
+    mention the list or future emails, and every result says the code is
+    not emailed, so Claude never says "check your inbox". Counted as
+    `templates_discount_list_failed`; the address is in the Vercel log
+    (`Buyer lookup failed` / `Buyer not added`) to add by hand.
+  - THE PAIR, matching form_shown / form_submitted: `discount_offered` =
+    the FIRST reply in a conversation that says "30%" (the history rides
+    with every request, so no storage), `discount_unlocked` = valid email,
+    code given. A reply that hands over the code counts as offered too, so
+    unlocked can never exceed offered. /stats English section now shows
+    both in the funnel, plus bad email / list failed / code missing in
+    Totals (the last two should stay 0).
+  - Verified: 7/7 on the helpers and the Resend-down path; a real 3-turn
+    English chat on an isolated copy with an invalid Resend key gave the
+    code, no list promise, no inbox claim, and logged offered once,
+    unlocked once, list_failed once.
 - Navarro's details added from the CMS later on Sep 24: 7 pages, projects
   (8) and blog (8) in the CMS, testimonials (6). The only free one with a blog.
 - The English panel uses FIRA MONO (Wael, Sep 24), the waeltamzouk.framer.ai
@@ -1398,6 +1428,8 @@ And for Wael: start a fresh chat at the start of each week's task.
   agent's 30%-code emails need their OWN list; do not let them share one
   with buyers, because "bought a template" and "wanted a discount code"
   are different people wanting different emails.
+  SUPERSEDED Sep 24 (W7-T4): they share `RESEND_AUDIENCE_ID_EN`, split by
+  the `source` property (`polar` / `polar-import` / `chat`).
 - THE 28 BUYERS FROM BEFORE THE WEBHOOK EXISTED are imported ONCE with
   `scripts/import-polar-orders.mjs`, from a CSV exported at Polar →
   Sales → Orders. A CSV, not Polar's API, so there is no extra token to

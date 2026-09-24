@@ -254,11 +254,17 @@ export const SITE_METRICS = [
   "engaged",
   "qualified",
   "form_shown",
-  // The English site's email-for-code step: codes given, and addresses
-  // refused as not-an-email. `discount_no_code` means DISCOUNT_CODE_EN is
-  // missing, and should always be zero.
+  // The English site's email-for-code step, the twin of form_shown /
+  // form_submitted: `discount_offered` is the first reply that puts the 30%
+  // deal in front of the visitor, `discount_unlocked` is a valid email typed
+  // and the code given. `discount_bad_email` is an address refused as
+  // not-an-email; `discount_list_failed` is a code given but Resend did not
+  // take the address (add it by hand from the logs); `discount_no_code` means
+  // DISCOUNT_CODE_EN is missing. The last two should always be zero.
+  "discount_offered",
   "discount_unlocked",
   "discount_bad_email",
+  "discount_list_failed",
   "discount_no_code",
   "lang_ar",
   "lang_en",

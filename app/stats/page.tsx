@@ -32,6 +32,11 @@ const LABELS: Record<string, string> = {
   qualified: "Got 6 exchanges in",
   form_shown: "Shown the contact form",
   form_submitted: "Sent the contact form",
+  discount_offered: "Offered the 30% code",
+  discount_unlocked: "Gave an email, got the code",
+  discount_bad_email: "Code: email refused",
+  discount_list_failed: "Code given, not on the list",
+  discount_no_code: "Code missing (env var)",
   lead_project: "Project leads",
   lead_template: "Template leads",
   lang_ar: "Arabic",
@@ -79,8 +84,9 @@ const BUYERS = [
 // counter names, so its numbers are exactly what this page showed before
 // W7-T3; the English site reads `templates_*`.
 //
-// The English site has NO contact form yet, so it stops at "Got 6 exchanges
-// in" and has no leads row. Give it the form steps when its email tool ships.
+// The English site has no contact form. Its last two funnel steps are the
+// email-for-code pair instead, and it has no leads row: an email for a code is
+// a subscriber, not a lead for Wael.
 const SITE_VIEWS: {
   site: Site;
   title: string;
@@ -101,8 +107,8 @@ const SITE_VIEWS: {
     site: "templates",
     title: "waeltamzouk.framer.ai",
     subtitle: "English templates agent",
-    funnel: ["opened", "started", "engaged", "qualified"],
-    totals: ["blocked_rate", "blocked_size"],
+    funnel: ["opened", "started", "engaged", "qualified", "discount_offered", "discount_unlocked"],
+    totals: ["discount_bad_email", "discount_list_failed", "discount_no_code", "blocked_rate", "blocked_size"],
     leads: false,
   },
 ];
