@@ -77,6 +77,9 @@ Explain as you go. Ask before big changes.
       Arabic conversation, including the follow-up turn that proves Claude
       does not ask twice. That run also exposed and fixed the milestone
       parity bug — see "The milestone parity bug".
+- [x] W6-T2 (Sep 24): prompt caching. Measured 66% off the prompt cost
+      of a real conversation, and proven not to change a single answer
+      rule in either language — see "Cost and the API balance".
 - [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
@@ -1330,16 +1333,33 @@ And for Wael: start a fresh chat at the start of each week's task.
 - FIX THE BLIND SPOT: turn on auto-reload in Anthropic billing, and
   consider a one-off email (via the Resend setup that already exists)
   the first time the route sees a billing error.
-- PROMPT CACHING IS DONE (Sep 24) and MEASURED against the real API:
-  the cached block is 9,382 tokens. First message writes it, every later
-  message in that conversation reads it instead of re-sending.
-  A 10-message conversation: ~93,800 prompt tokens before, ~20,000
-  billed-equivalent after — roughly 78% off, so a full qualifying
-  conversation drops from about $0.28 of prompt cost to about $0.06.
-  `systemFor()` now returns TWO blocks instead of one string: the fixed
-  prompt with `cache_control: {type:"ephemeral"}`, then the language
-  directive outside it. Concatenating them would make the cached text
-  differ between an Arabic and an English visitor and never hit.
+- PROMPT CACHING IS DONE (Sep 24). `systemFor()` returns TWO blocks
+  instead of one string: the fixed prompt with
+  `cache_control: {type:"ephemeral"}`, then the language directive
+  outside it. Concatenating them would make the cached text differ
+  between an Arabic and an English visitor and never hit.
+- MEASURED (W6-T2, Sep 24), from `usage.cache_read_input_tokens` on a
+  real 7-message Arabic lead conversation, 8 API calls including the
+  form turn. The caching commit's "9,382 tokens / 78% off" does NOT
+  match this measurement — use these:
+  - The cached block is **9,950 tokens** (tool definition + prompt).
+    Message 1 writes it, every later call reads all 9,950 — including
+    the second call of the form turn.
+  - What is NOT cached: the language directive plus the conversation,
+    ~1,150 tokens on message 1 and growing. That is paid in full.
+  - Result: prompt cost **$0.27 → $0.09 per conversation, 66% off**.
+    On the cached part alone it is 76% off, which is where the ~75%
+    below comes from. The whole-conversation number is the honest one.
+- PROVEN NOT TO CHANGE BEHAVIOUR: 12 questions (6 Arabic, 6 English:
+  prices, greeting-only, template links, buy links, a full lead) × 2
+  runs, old string vs new blocks. Token counts were IDENTICAL on all 24
+  pairs — the model receives the exact same input. Every check matched:
+  language, no greeting, prices only from the price list, links only
+  from the prompt, no Polar for an Arabic visitor who did not ask, no
+  Arabic template page for English, form fired with `type: project`.
+  One `**heading**` slipped in "compare all six templates" in English —
+  in BOTH versions, same run, so it is not caching. `stripMarkdown`
+  removed it; the visitor never saw it.
   Below is the original note, kept because the reasoning still holds.
 - PROMPT CACHING was the highest-value technical change left. The ~9,100
   token prompt is byte-identical every request. It does NOT affect
