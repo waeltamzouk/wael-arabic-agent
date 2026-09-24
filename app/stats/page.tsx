@@ -6,13 +6,14 @@
 // Google, and a wrong or missing key renders nothing at all.
 
 import type { Metadata } from "next";
-import { siteMetric, type Site } from "@/lib/site";
+import { siteMetric } from "@/lib/site";
 import {
   allMetrics,
   lastDays,
   readTotals,
   statsEnabled,
   upstashHint,
+  whatsappMetric,
 } from "@/lib/stats";
 
 export const metadata: Metadata = {
@@ -49,6 +50,17 @@ const LABELS: Record<string, string> = {
   buyer_no_consent: "Did not consent",
   buyer_failed: "Resend refused",
   polar_refused: "Blocked: bad signature",
+  not_text: "Voice notes, photos (not read)",
+  send_failed: "Reply not delivered (Meta)",
+  lead_failed: "Lead not emailed (Resend)",
+  refused: "Blocked: bad signature",
+};
+
+// The same counter can mean a different moment on WhatsApp, where there is no
+// form: request_contact asks for the name in words instead.
+const WHATSAPP_LABELS: Record<string, string> = {
+  form_shown: "Asked for their name",
+  form_submitted: "Lead sent",
 };
 
 const FUNNEL = [
@@ -87,8 +99,20 @@ const BUYERS = [
 // The English site has no contact form. Its last two funnel steps are the
 // email-for-code pair instead, and it has no leads row: an email for a code is
 // a subscriber, not a lead for Wael.
+//
+// WhatsApp (W8-T2) is a CHANNEL, not a site — it answers for the Arabic site —
+// but it gets its own section for the same reason: to be read side by side.
+// Its funnel uses the same counter names, so rows line up with the Arabic
+// site's. It has no "opened" step (the first message is the opening), so its
+// percentages are of `started` — compare it to the Arabic site's rows from
+// "Sent a first message" down, not to its percentages.
 const SITE_VIEWS: {
-  site: Site;
+  id: string;
+  // The stored key for a bare counter name in this section.
+  key: (metric: string) => string;
+  // What the percentages are "of".
+  base: string;
+  labels?: Record<string, string>;
   title: string;
   subtitle: string;
   funnel: readonly string[];
@@ -96,7 +120,9 @@ const SITE_VIEWS: {
   leads: boolean;
 }[] = [
   {
-    site: "waelwebdesign",
+    id: "waelwebdesign",
+    key: (metric) => siteMetric("waelwebdesign", metric),
+    base: "opened",
     title: "waelwebdesign.com",
     subtitle: "Arabic agent — services and templates",
     funnel: FUNNEL,
@@ -104,12 +130,25 @@ const SITE_VIEWS: {
     leads: true,
   },
   {
-    site: "templates",
+    id: "templates",
+    key: (metric) => siteMetric("templates", metric),
+    base: "opened",
     title: "waeltamzouk.framer.ai",
     subtitle: "English templates agent",
     funnel: ["opened", "started", "engaged", "qualified", "discount_offered", "discount_unlocked"],
     totals: ["discount_bad_email", "discount_list_failed", "discount_no_code", "blocked_rate", "blocked_size"],
     leads: false,
+  },
+  {
+    id: "whatsapp",
+    key: (metric) => whatsappMetric(metric as Parameters<typeof whatsappMetric>[0]),
+    base: "started",
+    labels: WHATSAPP_LABELS,
+    title: "WhatsApp",
+    subtitle: "The Arabic agent on Wael's WhatsApp number. Percentages are of first messages.",
+    funnel: ["started", "engaged", "qualified", "form_shown", "form_submitted"],
+    totals: ["lead_project", "lead_template", "lang_ar", "lang_en", "not_text", "blocked_rate", "send_failed", "lead_failed", "refused"],
+    leads: true,
   },
 ];
 
@@ -186,9 +225,12 @@ export default async function StatsPage({
     );
   }
 
-  // A site's own count for a bare metric name.
-  const count = (totals: Record<string, number>, site: Site, metric: string) =>
-    totals[siteMetric(site, metric)] ?? 0;
+  // A section's own count for a bare metric name.
+  const count = (
+    totals: Record<string, number>,
+    view: (typeof SITE_VIEWS)[number],
+    metric: string
+  ) => totals[view.key(metric)] ?? 0;
 
   return (
     // `min-w-0 w-full` is load-bearing, and it is the width twin of the scroll
@@ -207,14 +249,16 @@ export default async function StatsPage({
         no names, numbers or message text are stored here.
       </p>
 
-      {SITE_VIEWS.map(({ site, title, subtitle, funnel, totals, leads }) => {
-        const opened = count(overall, site, "opened");
+      {SITE_VIEWS.map((view) => {
+        const { id, title, subtitle, funnel, totals, leads } = view;
+        const label = (metric: string) => view.labels?.[metric] ?? LABELS[metric];
+        const opened = count(overall, view, view.base);
         const leadCount = leads
-          ? count(overall, site, "lead_project") + count(overall, site, "lead_template")
+          ? count(overall, view, "lead_project") + count(overall, view, "lead_template")
           : 0;
 
         return (
-          <section key={site} className="mt-10 border-t border-neutral-200 pt-6">
+          <section key={id} className="mt-10 border-t border-neutral-200 pt-6">
             <h2 className="text-base font-semibold">{title}</h2>
             <p className="mt-0.5 text-neutral-500">{subtitle}</p>
 
@@ -224,12 +268,12 @@ export default async function StatsPage({
                 <tbody>
                   {funnel.map((metric) => (
                     <tr key={metric} className="border-b border-neutral-100 last:border-0">
-                      <td className="p-3 text-neutral-600">{LABELS[metric]}</td>
+                      <td className="p-3 text-neutral-600">{label(metric)}</td>
                       <td className="p-3 text-right font-medium tabular-nums">
-                        {count(overall, site, metric)}
+                        {count(overall, view, metric)}
                       </td>
                       <td className="w-20 p-3 text-right tabular-nums text-neutral-400">
-                        {pct(count(overall, site, metric), opened)}
+                        {pct(count(overall, view, metric), opened)}
                       </td>
                     </tr>
                   ))}
@@ -246,16 +290,18 @@ export default async function StatsPage({
               </table>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              Percentages are of everyone who opened the bubble on this site.
+              {view.base === "opened"
+                ? "Percentages are of everyone who opened the bubble on this site."
+                : "Percentages are of everyone who sent a first message."}
             </p>
 
             <h3 className="mb-2 mt-6 font-medium">Totals</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {totals.map((metric) => (
                 <div key={metric} className="rounded-lg border border-neutral-200 p-3">
-                  <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
+                  <div className="text-xs text-neutral-500">{label(metric)}</div>
                   <div className="mt-1 text-xl font-semibold tabular-nums">
-                    {count(overall, site, metric)}
+                    {count(overall, view, metric)}
                   </div>
                 </div>
               ))}
@@ -269,7 +315,7 @@ export default async function StatsPage({
                     <th className="p-2 text-left font-medium">Day</th>
                     {funnel.map((m) => (
                       <th key={m} className="p-2 text-right font-medium">
-                        {LABELS[m].replace("Got ", "").replace(" the bubble", "")}
+                        {label(m).replace("Got ", "").replace(" the bubble", "")}
                       </th>
                     ))}
                     {leads && <th className="p-2 text-right font-medium">Leads</th>}
@@ -283,12 +329,12 @@ export default async function StatsPage({
                         <td className="p-2 text-neutral-600">{day}</td>
                         {funnel.map((m) => (
                           <td key={m} className="p-2 text-right tabular-nums">
-                            {count(row, site, m)}
+                            {count(row, view, m)}
                           </td>
                         ))}
                         {leads && (
                           <td className="p-2 text-right font-medium tabular-nums">
-                            {count(row, site, "lead_project") + count(row, site, "lead_template")}
+                            {count(row, view, "lead_project") + count(row, view, "lead_template")}
                           </td>
                         )}
                       </tr>

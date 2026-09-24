@@ -32,7 +32,9 @@ Env vars, all in `.env.local` AND in Vercel project settings:
 `STATS_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
 `POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`,
 `LEAD_DEFAULT_COUNTRY_CODE` (optional — see "WhatsApp link"),
-`RESEND_AUDIENCE_ID_EN`, `DISCOUNT_CODE_EN` (see "THE DISCOUNT CODE").
+`RESEND_AUDIENCE_ID_EN`, `DISCOUNT_CODE_EN` (see "THE DISCOUNT CODE"),
+`WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN`,
+`WHATSAPP_PHONE_NUMBER_ID` (see "WhatsApp channel (W8-T2)").
 
 ## About me
 Strong: Framer, design, Arabic.
@@ -85,6 +87,20 @@ Explain as you go. Ask before big changes.
       LIVE: quiz, template matching, 30% code for an email. See "W7-T5 —
       the English bubble". Still to do BY HAND: type one message on a
       phone and press Enter, on both sites.
+- [x] W8-T1 (Sep 24): the offer — packages, API/overage policy, client
+      checklist, exclusions, and the Arabic page copy. Lives OUTSIDE this
+      repo (it is public) in `Desktop/Agentic/offer/`. Its section 5 lists
+      what must be built before client #1: per-site lead email (today
+      `LEAD_TO_EMAIL` is one address), per-client numbers, the billing
+      alert, and teaching this agent the offer itself (W8-T2).
+- [ ] W8-T2 (Sep 24): the agent answers on WhatsApp. BUILT AND TESTED
+      LOCALLY against stand-ins for Meta, Upstash and Resend with REAL
+      Claude: 54 of 55 checks, and the one miss was the test's own regex
+      flagging "على هذا الرقم" in a correct reply. NOT YET LIVE: needs
+      Wael's Meta setup (see "WhatsApp channel (W8-T2)"), a push, and the
+      webhook saved in Meta.
+      Tick when: Wael messages the test number from his own WhatsApp, gets
+      Arabic with the right prices, it remembers, and a lead email arrives.
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
@@ -1549,6 +1565,8 @@ And for Wael: start a fresh chat at the start of each week's task.
 - FIX THE BLIND SPOT: turn on auto-reload in Anthropic billing, and
   consider a one-off email (via the Resend setup that already exists)
   the first time the route sees a billing error.
+  DONE Sep 24: auto-reload is ON (Wael confirmed). The email alert is
+  not built; with auto-reload on it only matters if the card fails.
 - PROMPT CACHING IS DONE (Sep 24). `systemFor()` returns TWO blocks
   instead of one string: the fixed prompt with
   `cache_control: {type:"ephemeral"}`, then the language directive
@@ -1647,3 +1665,116 @@ And for Wael: start a fresh chat at the start of each week's task.
   `invalid_request_error`, NOT 401. The key is fine and authentication
   is fine — it reads as a bad request. Check the message text, not the
   status.
+
+## WhatsApp channel (W8-T2, Sep 24)
+- NAMING: the W8-T1 note above calls "teaching this agent the offer" W8-T2.
+  Wael's brief for THIS task is also titled W8-T2. This section is the
+  WhatsApp one; the offer work still needs its own task.
+- SAME BRAIN, NEW DOOR. `lib/agent.ts` now holds everything both channels
+  share: `MODEL`, `CONTACT_TOOL`, `stripMarkdown`, `detectLanguage`,
+  `languageOf`, both directives, `systemFor`. MOVED out of
+  `app/api/chat/route.ts` by slicing the file, so every directive is
+  byte-identical and the website's cached prefix still hits. Older notes in
+  this file that point at `route.ts` for those functions mean `lib/agent.ts`.
+  `lib/upstash.ts` is the Upstash client, moved out of `lib/stats.ts` so the
+  counters and the WhatsApp memory share one connection.
+- FILES: `app/api/whatsapp/route.ts` (the door: signature, dedupe, queue,
+  answer in `after()`), `lib/whatsapp-cloud.ts` (Meta: HMAC, payload parsing,
+  sending, typing indicator), `lib/whatsapp-memory.ts` (Upstash history,
+  inbox, lock, trim), `lib/whatsapp-agent.ts` (one turn + the lead tools).
+  `lib/whatsapp.ts` is still the wa.me link builder — a different thing.
+- NOT /api/chat, as Wael predicted: its first check is the Origin allowlist
+  and Meta sends no Origin, so it 403s every time. The lock here is the
+  `X-Hub-Signature-256` HMAC of the RAW body with the App Secret — same shape
+  as /api/polar. GOTCHA: Meta escapes Arabic as `\uXXXX` in the body, so
+  re-serialised JSON never matches. The test harness sends escaped JSON on
+  purpose so this is really exercised.
+- ANSWER 200 FIRST, WORK AFTER. Meta re-delivers anything that looks failed
+  and a Claude turn takes 5-15s, so the route verifies, returns 200, and does
+  everything in `after()`. `maxDuration = 60`.
+- MEMORY, the real work. Upstash key `wa:chat:<number>` holds the SAME
+  plain-text `{role, content}` history the widget sends, plus STATE: `turns`,
+  `asked` (name requested), `notes`, `leadSent`. Expires after 7 days of
+  silence. The guard's caps (40 messages / 2,000 per message / 20,000 total)
+  are reused as a TRIM from the front, not a refusal — there is no tab to
+  close on WhatsApp. State lives outside the text on purpose, so a trim can
+  never make Claude ask for the name twice or send a second lead (tested).
+- PRIVACY CHANGE, worth knowing: Upstash used to hold counts only. It now
+  holds message text against phone numbers. That is what memory is; the
+  7-day expiry is the limit on it. /stats still shows counts only.
+- BURSTS. People send "مرحبا" / "عندي سؤال" / "كم السعر؟" as three
+  webhooks. Each message goes into `wa:inbox:<number>`; only the holder of
+  `wa:lock:<number>` (SET NX, 60s) calls Claude, takes the whole inbox as ONE
+  turn, then checks again. Plus a 2-second pause before taking the inbox:
+  WITHOUT it that exact burst measured two replies, WITH it one. Message ids
+  are remembered 2 days (`wa:seen:`) so a Meta retry is answered once.
+- WHAT request_contact BECAME: the same tool, same name, same notes, same
+  timing rules in the prompt — but on WhatsApp it shows nothing. The server
+  keeps the notes and Claude asks for the NAME in words. A second tool,
+  `send_lead` (WhatsApp only), fires when the name arrives: the server builds
+  the lead from name + stored notes + `+<sender's number>` and emails it with
+  the same `sendLead`. The number comes from Meta with its country code,
+  which is the whole problem the form's country dropdown was built to solve.
+  A WhatsApp directive (a THIRD system block, after the cache) overrides only
+  the "never ask for a name" rule; the ban on asking for a number stays. If
+  they refuse a name, the lead still goes, named by their profile name and
+  marked as such. Lead emails say `Channel: WhatsApp` and "New WhatsApp …".
+- GREETING: nobody greets on WhatsApp before the agent, so the FIRST reply of
+  a conversation is prefixed in code with the widget's welcome line ("أهلاً
+  بك. أنا مساعد وائل لتصميم المواقع."). Not stored in history — same as the
+  widget's — so the "never greet" directives stay true.
+- RATE LIMIT is the guard's `rateLimit()`, keyed `whatsapp:<number>` — NOT
+  the IP, because every webhook comes from Meta's IPs and an IP limit would
+  throttle all customers as one. Counted per TURN, not per message. Notices
+  (rate limit, "text only" for voice notes/photos) go out at most once a
+  minute per number, because from Oct 1 2026 Meta bills every reply.
+- COUNTERS match the website's names under `whatsapp_`: started / engaged /
+  qualified (1st/3rd/6th turn, counted from `turns`, never from the trimmed
+  history), form_shown (= name asked), form_submitted (= lead sent),
+  lead_project/template, lang_ar/en, plus not_text, blocked_rate,
+  blocked_size, send_failed, lead_failed, refused. /stats has a WhatsApp
+  section; its percentages are of `started` (there is no "opened").
+- FAILURES: a reply Meta refuses is NOT stored as said, the person's message
+  is kept and joined to their next one, and the log names the cause (190 =
+  token, 131030 = number not on the test list, 131047 = 24h window closed).
+  A lead Resend refuses is logged whole for adding by hand and left unsent,
+  so a later `send_lead` retries it.
+- TESTED Sep 24 with real Claude, Meta/Upstash/Resend stood in locally
+  (`WHATSAPP_GRAPH_URL`, `UPSTASH_REDIS_REST_URL`, `RESEND_BASE_URL` pointed
+  at a scratchpad server; `WHATSAPP_GRAPH_URL` must NEVER be set in Vercel):
+  handshake and 6 signature cases; a full Arabic qualifying chat — 1,400
+  quoted, five questions one at a time, never asked for a number, asked the
+  name, ONE email with `Phone: +966…` and a working wa.me link, then a
+  follow-up that remembered the price and sent nothing; bursts, duplicate
+  deliveries, voice notes, English, Meta refusing a reply, the 40-message
+  trim with `leadSent` surviving it, the counters, and /stats rendering them.
+  The website chat was re-checked after the refactor: 1,400 and $800, both
+  languages. `next build` clean.
+- META SETUP, in order (what Wael clicks): business portfolio at
+  business.facebook.com (name exactly as on the trade licence) → app at
+  developers.facebook.com, use case "Connect with customers through
+  WhatsApp" → WhatsApp → API Setup: add his own number under "To", copy the
+  Phone number ID → App settings → Basic: App Secret → a SYSTEM USER token,
+  expiry Never, with whatsapp_business_messaging + _management (the API Setup
+  token dies in 24h) → the four env vars in Vercel → push → Configuration →
+  Webhook: `https://wael-arabic-agent.vercel.app/api/whatsapp` + the verify
+  token, subscribe to `messages`. In parallel: Security Centre → business
+  verification with the licence, and a number never used on WhatsApp.
+  Going live on it is swapping `WHATSAPP_PHONE_NUMBER_ID`, no code.
+- PRICING, checked on Meta's own page Sep 24: from OCT 1 2026 Meta charges
+  per message for replies inside the 24-hour window too (until then they are
+  free). Resellers report 1,000 free per number per month and that numbers
+  with no card on file stop delivering — Meta's page did not confirm either.
+  This must be in the client price.
+- TEMPLATES are only for messaging someone who has NOT written first (e.g. a
+  website lead). Not built. Submit one after business verification, category
+  Utility, e.g. "مرحباً {{1}}، معك وائل من Wael Web Design. وصلني طلبك من
+  الموقع بخصوص {{2}}. متى يناسبك نتكلم؟". Until then the wa.me link in the
+  lead email is how Wael reaches website leads.
+- META'S AI POLICY (from Jan 15 2026): general-purpose AI chatbots are banned
+  on the WhatsApp Business API; a business's own customer-service assistant is
+  allowed. This agent is the allowed kind — keep it that way when selling it.
+- FOR CLIENTS LATER: `readInbound` already drops messages for any other
+  `phone_number_id`, and the agent's site is one constant in
+  `lib/whatsapp-agent.ts`. Per-client numbers means a map from phone number
+  id to site + lead email — the same "per-site lead email" W8-T1 lists.

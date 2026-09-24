@@ -7,6 +7,10 @@ export type Lead = {
   // Optional on purpose: the form marks it optional, because a third required
   // field costs more leads than the addresses are worth.
   email?: string;
+  // Where the lead came from. Set only by the WhatsApp channel, so website
+  // leads read exactly as they always did; a WhatsApp one says so in the
+  // subject and on its own line.
+  channel?: "WhatsApp";
   // "project" = wants a new site built. "template" = wants a template customized.
   type?: "project" | "template";
   business?: string;
@@ -44,6 +48,7 @@ export async function sendLead(lead: Lead) {
   }
 
   const body = [
+    ...(lead.channel ? [line("Channel", lead.channel)] : []),
     line("Type", lead.type),
     line("Name", lead.name),
     line("Phone", lead.phone),
@@ -75,7 +80,7 @@ export async function sendLead(lead: Lead) {
       // reply is the one already receiving the lead. That also keeps a real
       // email address out of this file — the repo is public.
       replyTo: to,
-      subject: `New ${lead.type ?? "project"} lead: ${lead.name} — ${
+      subject: `New ${lead.channel ? `${lead.channel} ` : ""}${lead.type ?? "project"} lead: ${lead.name} — ${
         lead.project?.trim() || "website"
       }`,
       text: body,

@@ -17,28 +17,16 @@
 
 import { after } from "next/server";
 import { DEFAULT_SITE, SITES, siteMetric } from "@/lib/site";
+import { pipeline, upstashEnabled } from "@/lib/upstash";
 
-// Normalised, because the value gets copied out of a dashboard by hand and the
-// three ways it usually arrives wrong all produce the same unhelpful failure:
-// a trailing slash (which makes the request path "//pipeline"), and a bare
-// host with no scheme (which makes `fetch` throw on an invalid URL).
-function restUrl(): string | undefined {
-  const raw = process.env.UPSTASH_REDIS_REST_URL?.trim();
-  if (!raw) return undefined;
-  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  return withScheme.replace(/\/+$/, "");
-}
-
-const REST_URL = restUrl();
-const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+// The Upstash connection itself lives in lib/upstash.ts, shared with the
+// WhatsApp memory. `statsEnabled` and `upstashHint` keep their old names here
+// so the stats page did not have to change.
+export { upstashEnabled as statsEnabled, upstashHint } from "@/lib/upstash";
 
 // Daily keys expire so the free tier never fills up. 90 days is far more
 // history than anyone will look at.
 const TTL_SECONDS = 90 * 24 * 60 * 60;
-
-export function statsEnabled(): boolean {
-  return Boolean(REST_URL && REST_TOKEN);
-}
 
 /**
  * The day a visitor would call "today". Riyadh, not UTC — a conversation at
@@ -59,56 +47,6 @@ export function lastDays(count: number): string[] {
   return days;
 }
 
-export class UpstashError extends Error {
-  constructor(readonly status: number) {
-    super(`Upstash request failed with ${status}`);
-    this.name = "UpstashError";
-  }
-}
-
-/** What a given failure most likely means, in words Wael can act on. */
-export function upstashHint(error: unknown): string {
-  const status = error instanceof UpstashError ? error.status : 0;
-  if (status === 401 || status === 403) {
-    return "Upstash rejected the token. UPSTASH_REDIS_REST_TOKEN is probably wrong — copy the REST token again, not the database password.";
-  }
-  if (status === 404) {
-    return "Upstash did not recognise that address. UPSTASH_REDIS_REST_URL should be the REST URL from the dashboard, the https:// one — not the redis:// connection string.";
-  }
-  if (status) return `Upstash answered ${status}.`;
-  return "Could not reach Upstash at all. Check UPSTASH_REDIS_REST_URL is the https:// REST URL from the dashboard.";
-}
-
-async function pipeline(commands: unknown[][]): Promise<unknown[]> {
-  const res = await fetch(`${REST_URL}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${REST_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(commands),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    // The body can echo back request details, so it goes to the server log and
-    // never to the page. Only the status travels, which is what identifies the
-    // problem anyway: 401 is a bad token, 404 a bad URL.
-    console.error(`Upstash ${res.status}:`, await res.text());
-    throw new UpstashError(res.status);
-  }
-
-  // A pipeline can return 200 with per-command errors, so a failed counter
-  // would otherwise vanish silently. Log them; still return what did work.
-  const body: { result?: unknown; error?: string }[] = await res.json();
-
-  for (const entry of body) {
-    if (entry.error) console.error("Upstash command failed:", entry.error);
-  }
-
-  return body.map((entry) => entry.result ?? null);
-}
-
 /**
  * Count one or more metrics for today.
  *
@@ -122,7 +60,7 @@ export function record(...metrics: string[]) {
 
   console.log(`[funnel] ${metrics.join(" ")}`);
 
-  if (!statsEnabled()) return;
+  if (!upstashEnabled()) return;
 
   const day = statsDay();
   const commands: unknown[][] = [];
@@ -183,7 +121,7 @@ export async function readTotals(
   days: string[],
   metrics: string[]
 ): Promise<{ byDay: Record<string, Totals>; overall: Totals }> {
-  if (!statsEnabled()) return { byDay: {}, overall: {} };
+  if (!upstashEnabled()) return { byDay: {}, overall: {} };
 
   const commands: unknown[][] = [];
   for (const day of days) {
@@ -273,10 +211,45 @@ export const SITE_METRICS = [
   "blocked_size",
 ] as const;
 
+// The WhatsApp channel's counters (W8-T2), stored as `whatsapp_<name>`. The
+// names MATCH the website's on purpose, so the two funnels can be read side by
+// side on /stats: `started`/`engaged`/`qualified` are the same 1st/3rd/6th
+// visitor turn, `form_shown` is the moment request_contact fires (on WhatsApp
+// that is "asked for their name", because there is no form), and
+// `form_submitted` is a lead actually emailed.
+//
+// There is no `opened`: on WhatsApp the first message IS the opening. The rest
+// exist only on this channel: `not_text` is a voice note, photo or sticker the
+// agent cannot read; `send_failed` is a reply Meta refused to deliver (read the
+// logs — usually the token); `lead_failed` is a lead Resend refused (it is in
+// the logs, add it by hand); `refused` is a webhook call with a bad signature.
+export const WHATSAPP_METRICS = [
+  "started",
+  "engaged",
+  "qualified",
+  "form_shown",
+  "form_submitted",
+  "lead_project",
+  "lead_template",
+  "lang_ar",
+  "lang_en",
+  "not_text",
+  "blocked_rate",
+  "blocked_size",
+  "send_failed",
+  "lead_failed",
+  "refused",
+] as const;
+
+/** A WhatsApp counter's stored name. */
+export function whatsappMetric(name: (typeof WHATSAPP_METRICS)[number]): string {
+  return `whatsapp_${name}`;
+}
+
 /** Every key the stats page reads: the bare ones plus each site's prefixed ones. */
 export function allMetrics(): string[] {
   const extra = SITES.filter((site) => site !== DEFAULT_SITE).flatMap((site) =>
     SITE_METRICS.map((metric) => siteMetric(site, metric))
   );
-  return [...METRICS, ...extra];
+  return [...METRICS, ...extra, ...WHATSAPP_METRICS.map(whatsappMetric)];
 }

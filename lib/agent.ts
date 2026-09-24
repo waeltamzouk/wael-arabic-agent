@@ -1,0 +1,240 @@
+// The agent's shared brain: the model, the contact tool, the language
+// directives and the system prompt builder. Used by BOTH channels — the website
+// (`app/api/chat/route.ts`) and WhatsApp (`lib/whatsapp-agent.ts`) — so a prompt
+// or directive fix lands on both at once. Moved here from the chat route in
+// W8-T2; the text of every directive is byte-identical to what it was there,
+// which is what keeps the website's cached prompt prefix hitting.
+//
+// SERVER ONLY. Never import this from a client component — see lib/site.ts.
+
+import Anthropic from "@anthropic-ai/sdk";
+import { EN_TEMPLATES_DIRECTIVE, promptFor } from "@/lib/prompts";
+import { DEFAULT_SITE, type Site } from "@/lib/site";
+
+export const MODEL = "claude-sonnet-4-5";
+export const MAX_TOKENS = 1024;
+
+// Said back to the visitor if Claude produces no text at all. Keyed by
+// language: the form case fires at the exact moment someone is being asked for
+// a phone number, and answering an English visitor in Arabic there is the
+// worst possible place to slip.
+export const FALLBACK_REPLY = {
+  form: {
+    ar: "عبّي بياناتك تحت وأرسلها، ووائل بيتواصل معك قريباً.",
+    en: "Fill in your details below and send them — Wael will be in touch shortly.",
+  },
+  plain: {
+    ar: "تعذر إنشاء الرد. حاول مرة أخرى.",
+    en: "The reply could not be generated. Please try again.",
+  },
+} as const;
+
+// NOT a "save the lead" tool any more. Claude no longer handles the name or
+// the phone number at all — it decides WHEN to ask, and the visitor types the
+// answer into a real form that posts straight to /api/lead.
+//
+// Why: a number copied out of a chat sentence arrives however it was typed
+// ("0551234567", two numbers at once, "call me after 5pm"), and then nothing
+// downstream can be sure which country it is from. A form with a country
+// dropdown removes the guess entirely. See lib/whatsapp.ts for what the
+// guessing used to cost.
+//
+// The fields here are the notes Claude DID gather from the conversation. They
+// ride along with the form and come back with it, so the lead email still has
+// the budget and the timeline in it.
+export const CONTACT_TOOL: Anthropic.Tool = {
+  name: "request_contact",
+  description:
+    "Show the visitor a short form asking for their name and phone number. Call this once, at the moment the visitor should be asked for their contact details. Do NOT ask for a name or a phone number in your own words — this form is the only way to collect them. Fill every other field you can from the conversation; leave a field out if the visitor never answered it.",
+  input_schema: {
+    type: "object",
+    properties: {
+      type: {
+        type: "string",
+        enum: ["project", "template"],
+        description:
+          "'project' when the visitor wants a new site built. 'template' when the visitor wants one of the ready-made templates customized.",
+      },
+      business: { type: "string", description: "What the business does." },
+      project: {
+        type: "string",
+        description:
+          "For a project lead: landing page, business website, advanced website. For a template lead: the template being customized, e.g. تخصيص قالب نَبض.",
+      },
+      budget: { type: "string", description: "Rough budget the visitor gave." },
+      timeline: { type: "string", description: "When they want to launch." },
+      needs: {
+        type: "string",
+        description:
+          "Existing content and branding, or starting from scratch.",
+      },
+      quality: {
+        type: "string",
+        enum: ["hot", "warm", "cold"],
+        description: "How ready to buy the visitor seems.",
+      },
+    },
+    required: ["type"],
+  },
+};
+
+// The chat bubbles render plain text (whitespace-pre-wrap), so any markdown
+// Claude emits is shown to the visitor literally as ** and #. The prompt
+// forbids it, but that rule slips on list-shaped English answers, so strip it
+// here too. Cheap, deterministic, and none of these markers are ever wanted.
+export function stripMarkdown(text: string) {
+  return text
+    .replace(/\*\*([\s\S]+?)\*\*/g, "$1")
+    .replace(/__([\s\S]+?)__/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "");
+}
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+// The prompt is ~250 lines of Arabic, so a single Arabic rule saying "reply in
+// the visitor's language" gets drowned out — Claude answers English questions
+// in Arabic. Moving the rule to the very end did not fix it either. Same story
+// as the markdown slip: a prompt rule alone is not enough, so pin it down in
+// code. Detecting the script is deterministic, and the directive is written in
+// ENGLISH on purpose — in a mostly-Arabic prompt it stands out.
+//
+// `tie` is what a message with no letters at all ("30", "?") counts as. Only
+// the Arabic site calls this — the English site is pinned to English.
+export function detectLanguage(text: string, tie: "ar" | "en" = "ar"): "ar" | "en" {
+  const arabic = (text.match(/[\u0600-\u06FF]/g) ?? []).length;
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  if (latin > arabic) return "en";
+  if (arabic > latin) return "ar";
+  return tie;
+}
+
+// GOTCHA that cost a live bug: the heading used to read "THIS OVERRIDES EVERY
+// RULE ABOVE". It was only ever meant to override the LANGUAGE rules, but the
+// model read it literally and dropped the no-greeting rule with it — an
+// English visitor got "Hi! How can I help you today?" on top of the site's own
+// welcome bubble. Scope the override, and restate the greeting ban here, where
+// recency actually makes it stick.
+//
+// KEEP THE TWO DIRECTIVES SYMMETRIC. The greeting ban held 9/9 in English and
+// slipped in Arabic, and the difference was in the wording, not the language:
+// English said "or any other greeting word", Arabic listed four strings and
+// stopped. The model slipped out through "أهلاً وسهلاً", which is not one of
+// the four. A closed list reads as the whole rule. Say the list is examples.
+export const ENGLISH_DIRECTIVE = `
+
+## THIS REPLY — LANGUAGE AND OPENING
+This section overrides the LANGUAGE rules above and nothing else. Every other
+rule in the prompt still applies in full.
+
+The visitor's latest message is in ENGLISH. Write your entire reply in
+English, from the first word to the last. Do not write a single Arabic
+sentence. Give the English preview link and, only if they asked to buy, the
+English Polar link. Never give the waelwebdesign.com template page to an
+English speaker — that page is Arabic only.
+
+NEVER GREET, and this holds in English exactly as it does in Arabic. The
+website already greeted this visitor with a welcome message you cannot see, so
+a greeting from you is the second one they read. Do not open with "Hi",
+"Hello", "Hey", "Welcome" or any other greeting word.
+
+If their message is ONLY a greeting with no question, do not greet back and do
+not ask "how can I help you" — that wastes the whole reply and they already
+know they can ask. Open with something concrete instead: the websites Wael
+builds and what they cost, or the six ready-made templates.`;
+
+export const ARABIC_DIRECTIVE = `
+
+## قواعد هذا الرد بالذات
+آخر رسالة من الزائر بالعربية. رد بالعربية كاملة.
+وإذا كان مهتماً بقالب، أعطه صفحة القالب على موقع وائل، وهي الرابط
+الافتراضي الوحيد.
+ممنوع في هذا الرد أن تعطي رابط Polar أو تذكره أو تلمّح له، إلا إذا كانت
+آخر رسالة من الزائر تطلب الشراء أو الحصول على القالب صراحةً. إذا لم يطلب
+ذلك بنفسه، فلا وجود لرابط Polar في ردك إطلاقاً.
+وممنوع تبدأ ردك بتحية، وهذا ينطبق بالعربية تماماً مثل الإنجليزية. الموقع
+رحّب بالزائر قبلك برسالة أنت ما تشوفها، فأي تحية منك هي التحية الثانية
+اللي يقراها.
+القاعدة هي منع التحية نفسها، مو منع كلمات بعينها. وهذي أمثلة وليست
+حصراً: "مرحباً"، "أهلاً"، "أهلاً بك"، "أهلاً وسهلاً"، "هلا"، "يا هلا"،
+"حياك الله"، "السلام عليكم"، "وعليكم السلام"، "صباح الخير"، "مساء
+الخير"، "تحية طيبة". أي صيغة تحية أخرى غير مذكورة هنا ممنوعة كذلك.
+وحتى لو بدأ الزائر رسالته بتحية، لا ترد تحيته ولا تقابلها بمثلها. تجاهلها
+تماماً وابدأ بالمحتوى من أول كلمة.
+وإذا كانت رسالته مجرد تحية بدون سؤال، لا ترد التحية ولا تسأل "كيف أقدر
+أساعدك" ولا "كيف أساعدك" ولا "وش تحتاج" ولا أي صيغة ثانية من نفس
+السؤال — هذا يضيّع الرد كله وهو أصلاً يعرف إنه يقدر يسأل. بدل ذلك ابدأ
+بشيء ملموس: المواقع اللي يصممها وائل وأسعارها، أو القوالب الجاهزة الستة.
+وهذا المنع يشمل الرد كله، أوله وآخره. لا تبدأ به ولا تختم به.
+وإذا بغيت تختم بسؤال، خله سؤالاً محدداً عن مشروعه هو — مثل: يبغى موقعاً
+جديداً ولا قالباً جاهزاً، أو أي نوع موقع يفكر فيه. السؤال المحدد مطلوب،
+والسؤال العام عن كيف تقدر تساعده ممنوع.`;
+
+// The English templates site is ENGLISH ONLY — Wael's call, Sep 24. It never
+// follows the visitor's script, so the reply, the fallback text and the funnel
+// counter are all English there. Only the Arabic site switches.
+export function languageOf(messages: ChatMessage[], site: Site): "ar" | "en" {
+  if (site !== DEFAULT_SITE) return "en";
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  return lastUser ? detectLanguage(lastUser.content, "ar") : "ar";
+}
+
+// TWO BLOCKS, NOT ONE STRING, and the split is the entire point.
+//
+// The prompt is ~9,000 tokens of Arabic and it was re-sent in full on every
+// message — a ten-message conversation paid for it ten times. Caching makes
+// Anthropic keep it for a few minutes so the rest of the conversation reads it
+// cheaply instead of re-sending it.
+//
+// THE CATCH THAT MAKES THIS FIDDLY: a cache hit needs the cached part to be
+// BYTE-IDENTICAL every time. The per-reply language directive is appended to
+// the prompt, and it differs between an Arabic and an English visitor — so
+// concatenating them into one string means the cache never matches and the
+// whole thing is pointless. The breakpoint has to sit BETWEEN them: the long
+// fixed prompt is cached, the short directive rides outside it.
+//
+// Tools are cached too. They sit before `system` in Anthropic's cache order,
+// so a breakpoint on the system block covers the tool definition as well.
+//
+// HONEST LIMIT: a cache WRITE costs about 1.25x a normal read, and the cache
+// expires after about five minutes. So the win is WITHIN one conversation —
+// one write, then cheap reads. A lone visitor an hour is roughly break-even;
+// a busy day is a real saving. It changes nothing about the answers: the model
+// receives identical tokens either way, caching only skips re-processing them.
+//
+// Each SITE has its own prompt, so each site gets its own cached prefix. That
+// is correct and costs nothing extra: a visitor only ever talks to one site.
+//
+// `channel` is an optional THIRD block for a channel that is not the website
+// widget — WhatsApp passes its own directive here. It rides after the cached
+// prompt, like the language directive, so it never breaks the cache. The
+// website passes nothing and its two blocks are exactly what they always were.
+export function systemFor(
+  site: Site,
+  language: "ar" | "en",
+  channel?: string
+): Anthropic.TextBlockParam[] {
+  return [
+    {
+      type: "text",
+      text: promptFor(site),
+      cache_control: { type: "ephemeral" },
+    },
+    {
+      type: "text",
+      // The directives are site-specific too: the Arabic site's name Wael's
+      // template pages and "the six templates", which do not exist on the
+      // English site. The English site has ONE directive — it never switches.
+      text:
+        site === DEFAULT_SITE
+          ? language === "en"
+            ? ENGLISH_DIRECTIVE
+            : ARABIC_DIRECTIVE
+          : EN_TEMPLATES_DIRECTIVE,
+    },
+    ...(channel ? [{ type: "text" as const, text: channel }] : []),
+  ];
+}
