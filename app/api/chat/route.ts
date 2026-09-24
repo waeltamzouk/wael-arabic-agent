@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { DISCOUNT_TOOL, unlockDiscount } from "@/lib/discount";
 import { EN_TEMPLATES_DIRECTIVE, promptFor } from "@/lib/prompts";
 import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
 import { depthMetric, record } from "@/lib/stats";
@@ -329,11 +330,11 @@ export async function POST(req: NextRequest) {
     const language = languageOf(messages, site);
     const system = systemFor(site, language);
 
-    // Only the Arabic site collects name + phone for Wael. The English site
-    // captures an EMAIL for the discount code, which needs its own tool (not
-    // built yet) — so until then it gets no tool at all, and can never show
-    // the Arabic lead form.
-    const tools = site === DEFAULT_SITE ? [CONTACT_TOOL] : undefined;
+    // One tool per site, never both. The Arabic site shows the name + phone
+    // form for Wael; the English site trades an EMAIL for the discount code.
+    // Keeping them apart means the English site can never show the Arabic
+    // lead form, and the Arabic site can never hand out the English code.
+    const tools = site === DEFAULT_SITE ? [CONTACT_TOOL] : [DISCOUNT_TOOL];
 
     // Funnel milestones. `depthMetric` only returns a value at exact depths a
     // conversation passes through once, so this counts each conversation once
@@ -368,9 +369,18 @@ export async function POST(req: NextRequest) {
     // here — the route tells the widget to show the form, and the form posts
     // to /api/lead when the visitor sends it.
     const toolUse = first.content.find((block) => block.type === "tool_use");
+    const isForm = toolUse?.name === CONTACT_TOOL.name;
+
+    // The English site's email-for-code step. Runs HERE, on the server, before
+    // Claude writes a word: the code only exists in the tool result, so Claude
+    // cannot give it out until an email has actually been saved.
+    const unlock =
+      toolUse?.name === DISCOUNT_TOOL.name
+        ? await unlockDiscount(toolUse.input)
+        : null;
 
     if (toolUse) {
-      record(siteMetric(site, "form_shown"));
+      record(siteMetric(site, unlock ? unlock.metric : "form_shown"));
 
       final = await anthropic.messages.create({
         model: MODEL,
@@ -395,8 +405,9 @@ export async function POST(req: NextRequest) {
                 tool_use_id: toolUse.id,
                 // Claude's only remaining job is the sentence above the
                 // form, so tell it exactly what the visitor can now see.
-                content:
-                  "The contact form is now shown to the visitor, below your reply. Write one short sentence asking them to fill it in. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.",
+                content: unlock
+                  ? unlock.result
+                  : "The contact form is now shown to the visitor, below your reply. Write one short sentence asking them to fill it in. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.",
               },
             ],
           },
@@ -404,21 +415,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const reply = stripMarkdown(
+    let reply = stripMarkdown(
       final.content
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("")
     );
 
+    // The visitor gave a valid email, so they get the code whatever Claude
+    // wrote. Deterministic, same idea as stripMarkdown: a rule the model can
+    // slip on is backed by code that cannot.
+    if (unlock?.ok && !reply.includes(unlock.code)) {
+      reply = `${reply}\n\nYour code is ${unlock.code}: 30% off any premium template or All Access at checkout.`.trim();
+    }
+
     // The widget throws on an empty reply, so never return one.
     return json(req, {
-      reply: reply || FALLBACK_REPLY[toolUse ? "form" : "plain"][language],
+      reply:
+        reply || FALLBACK_REPLY[isForm ? "form" : "plain"][language],
       // Present ONLY when the form should appear. `notes` is what Claude
       // gathered from the conversation; it rides out to the browser and comes
       // back with the form, and /api/lead re-checks every field of it, because
       // by then it has been through a stranger's browser.
-      ...(toolUse
+      ...(isForm
         ? { contactForm: { language, notes: toolUse.input } }
         : {}),
     });

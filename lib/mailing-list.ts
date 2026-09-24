@@ -26,6 +26,8 @@ export type Buyer = {
   audienceId?: string;
   /** The template they bought. Stored on the contact so it can be filtered on later. */
   product?: string;
+  /** Where they came from: "polar" (a purchase) or "chat" (the discount code). Defaults to "polar". */
+  source?: "polar" | "chat";
   /** For the log only: which order put them here, and which list it chose. */
   orderId?: string;
   list?: string;
@@ -150,7 +152,7 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
       properties: {
         language: buyer.list ?? "",
         template: buyer.product ?? "",
-        source: "polar",
+        source: buyer.source ?? "polar",
       },
       // Sent explicitly rather than left to default. There is a known Resend
       // bug where an omitted value lands as unsubscribed, and a contact that

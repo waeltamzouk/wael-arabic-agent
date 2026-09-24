@@ -44,6 +44,9 @@
 [data-site="templates"] {
   --accent: #ff3801;
   --accent-text: #c22a00;
+  /* Fira Mono, same as that site's body text (Wael, Sep 24). Inputs and the
+     send button inherit it through Tailwind's preflight. */
+  font-family: var(--font-fira-mono), ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -254,6 +254,12 @@ export const SITE_METRICS = [
   "engaged",
   "qualified",
   "form_shown",
+  // The English site's email-for-code step: codes given, and addresses
+  // refused as not-an-email. `discount_no_code` means DISCOUNT_CODE_EN is
+  // missing, and should always be zero.
+  "discount_unlocked",
+  "discount_bad_email",
+  "discount_no_code",
   "lang_ar",
   "lang_en",
   "blocked_origin",
