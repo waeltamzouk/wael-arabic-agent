@@ -62,8 +62,8 @@ Explain as you go. Ask before big changes.
       Arabic project, Arabic template (from `/template/nabdh`), and an
       ENGLISH project lead. All fields populated, `type` correct on both.
 - [x] Phase 5 (Sep 22): funnel visibility — Upstash counters, /stats page, live
-      and verified writing. The "opened" ping still needs the Framer
-      snippet re-pasting and publishing.
+      and verified writing. The "opened" ping is live on BOTH sites
+      (checked Sep 24: waelwebdesign.com serves the snippet with /api/event).
 - [x] W6-T4 (Sep 22): Polar buyers → Resend Audience. LIVE AND VERIFIED
       END TO END on a real Polar delivery: a free Navarro download landed
       in "Templates (English)" and not the Arabic list. That single test
@@ -81,7 +81,10 @@ Explain as you go. Ask before big changes.
 - [x] W6-T2 (Sep 24): prompt caching. Measured 66% off the prompt cost
       of a real conversation, and proven not to change a single answer
       rule in either language — see "Cost and the API balance".
-- [ ] Phase 6: English templates agent on waeltamzouk.framer.ai
+- [x] Phase 6 (Sep 24): English templates agent on waeltamzouk.framer.ai.
+      LIVE: quiz, template matching, 30% code for an email. See "W7-T5 —
+      the English bubble". Still to do BY HAND: type one message on a
+      phone and press Enter, on both sites.
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
@@ -1148,7 +1151,8 @@ And for Wael: start a fresh chat at the start of each week's task.
     prompt body; it only held from the per-reply `DIRECTIVE` (recency, same
     as the greeting ban). Now 3 of 3, once per conversation.
   - Test contact `delivered@resend.dev` (Resend's own test address) was added
-    to the English Audience on Sep 24 while testing. Safe to delete.
+    to the English Audience on Sep 24 while testing. DELETED by Wael Sep 24,
+    confirmed gone (404). Remove it again after any future test.
 - DONE W7-T4 (Sep 24): the email-for-code step, finished.
   - REUSED, not rebuilt: `unlock_discount` calls `addBuyer` with
     `RESEND_AUDIENCE_ID_EN` and `source: "chat"`. ONE list for English buyers
@@ -1180,7 +1184,7 @@ And for Wael: start a fresh chat at the start of each week's task.
     Wael: no worries about that cap), ends SEP 1 2027. After the end date
     the agent keeps handing out a dead code, the exact failure this feature
     must avoid: before Sep 2027, extend the date in Polar or change
-    `DISCOUNT_CODE_EN`.
+    `DISCOUNT_CODE_EN`. REMINDER: check this in AUGUST 2027.
   - Verified: 7/7 on the helpers and the Resend-down path; a real 3-turn
     English chat on an isolated copy with an invalid Resend key gave the
     code, no list promise, no inbox claim, and logged offered once,
