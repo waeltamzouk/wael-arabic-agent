@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_SITE, promptFor, type Site } from "@/lib/prompts";
+import { EN_TEMPLATES_DIRECTIVES, promptFor } from "@/lib/prompts";
+import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
 import { depthMetric, record } from "@/lib/stats";
 import {
   checkSize,
@@ -119,10 +120,16 @@ function json(req: NextRequest, body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: corsHeaders(req) });
 }
 
-function refuse(req: NextRequest, failure: GuardFailure, metric: string) {
+// The English site's visitor must never see an Arabic notice. `noticeEn` is
+// set on the guard's own failures; anything without one gets the generic line.
+const GENERIC_NOTICE_EN = "Something went wrong. Please try again.";
+
+function refuse(req: NextRequest, failure: GuardFailure, metric: string, site: Site) {
   console.warn("Blocked /api/chat request:", failure.error);
-  record(metric);
-  return json(req, { error: failure.error, notice: failure.notice }, failure.status);
+  record(siteMetric(site, metric));
+  const notice =
+    site === DEFAULT_SITE ? failure.notice : failure.noticeEn ?? GENERIC_NOTICE_EN;
+  return json(req, { error: failure.error, notice }, failure.status);
 }
 
 // The browser's CORS preflight. Only fires when the widget is loaded straight
@@ -140,10 +147,15 @@ export async function OPTIONS(req: NextRequest) {
 // as the markdown slip: a prompt rule alone is not enough, so pin it down in
 // code. Detecting the script is deterministic, and the directive is written in
 // ENGLISH on purpose — in a mostly-Arabic prompt it stands out.
-function detectLanguage(text: string): "ar" | "en" {
+//
+// `tie` is what a message with no letters at all ("30", "?") counts as: Arabic
+// on the Arabic site, English on the English one.
+function detectLanguage(text: string, tie: "ar" | "en" = "ar"): "ar" | "en" {
   const arabic = (text.match(/[\u0600-\u06FF]/g) ?? []).length;
   const latin = (text.match(/[A-Za-z]/g) ?? []).length;
-  return latin > arabic ? "en" : "ar";
+  if (latin > arabic) return "en";
+  if (arabic > latin) return "ar";
+  return tie;
 }
 
 // GOTCHA that cost a live bug: the heading used to read "THIS OVERRIDES EVERY
@@ -207,9 +219,10 @@ const ARABIC_DIRECTIVE = `
 جديداً ولا قالباً جاهزاً، أو أي نوع موقع يفكر فيه. السؤال المحدد مطلوب،
 والسؤال العام عن كيف تقدر تساعده ممنوع.`;
 
-function languageOf(messages: ChatMessage[]): "ar" | "en" {
+function languageOf(messages: ChatMessage[], site: Site): "ar" | "en" {
+  const fallback = site === DEFAULT_SITE ? "ar" : "en";
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  return lastUser ? detectLanguage(lastUser.content) : "ar";
+  return lastUser ? detectLanguage(lastUser.content, fallback) : fallback;
 }
 
 // TWO BLOCKS, NOT ONE STRING, and the split is the entire point.
@@ -246,23 +259,43 @@ function systemFor(site: Site, language: "ar" | "en"): Anthropic.TextBlockParam[
     },
     {
       type: "text",
-      text: language === "en" ? ENGLISH_DIRECTIVE : ARABIC_DIRECTIVE,
+      // The directives are site-specific too: the Arabic site's name Wael's
+      // template pages and "the six templates", which do not exist on the
+      // English site.
+      text:
+        site === DEFAULT_SITE
+          ? language === "en"
+            ? ENGLISH_DIRECTIVE
+            : ARABIC_DIRECTIVE
+          : EN_TEMPLATES_DIRECTIVES[language],
     },
   ];
 }
 
 export async function POST(req: NextRequest) {
+  // Which site's agent this is. A QUERY PARAM rather than a body field, so it
+  // is known before the body is read and even the very first refusals below
+  // can answer in the right language. No param means the Arabic site, which
+  // is what every existing waelwebdesign.com bubble sends.
+  const requestedSite = siteFromParam(req.nextUrl.searchParams.get("site"));
+  const site = requestedSite ?? DEFAULT_SITE;
+
   // Cheapest check first, and the only one that runs before the body is read.
   if (!isAllowedOrigin(req)) {
     return refuse(req, {
       status: 403,
       error: `Origin not allowed: ${req.headers.get("origin") ?? "(none)"}.`,
       notice: "غير مصرح.",
-    }, "blocked_origin");
+      noticeEn: "Not allowed.",
+    }, "blocked_origin", site);
+  }
+
+  if (!requestedSite) {
+    return json(req, { error: "Unknown site." }, 400);
   }
 
   const limited = rateLimit(clientIp(req));
-  if (limited) return refuse(req, limited, "blocked_rate");
+  if (limited) return refuse(req, limited, "blocked_rate", site);
 
   let body: unknown;
 
@@ -288,15 +321,20 @@ export async function POST(req: NextRequest) {
   // Size caps last: they need a parsed, valid body, and they are what stop one
   // oversized conversation costing a fortune.
   const oversized = checkSize(messages);
-  if (oversized) return refuse(req, oversized, "blocked_size");
+  if (oversized) return refuse(req, oversized, "blocked_size", site);
 
   try {
     // Computed ONCE and used for BOTH calls in the tool loop. The second call's
     // last message is a tool_result, so recomputing it there would read the
     // wrong message and could flip the language mid-answer.
-    const language = languageOf(messages);
-    // Every request is the Arabic site until /embed passes `site` through.
-    const system = systemFor(DEFAULT_SITE, language);
+    const language = languageOf(messages, site);
+    const system = systemFor(site, language);
+
+    // Only the Arabic site collects name + phone for Wael. The English site
+    // captures an EMAIL for the discount code, which needs its own tool (not
+    // built yet) — so until then it gets no tool at all, and can never show
+    // the Arabic lead form.
+    const tools = site === DEFAULT_SITE ? [CONTACT_TOOL] : undefined;
 
     // Funnel milestones. `depthMetric` only returns a value at exact depths a
     // conversation passes through once, so this counts each conversation once
@@ -312,8 +350,8 @@ export async function POST(req: NextRequest) {
     );
     if (milestone) {
       record(
-        milestone,
-        ...(milestone === "started" ? [`lang_${language}`] : [])
+        siteMetric(site, milestone),
+        ...(milestone === "started" ? [siteMetric(site, `lang_${language}`)] : [])
       );
     }
 
@@ -321,7 +359,7 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system,
-      tools: [CONTACT_TOOL],
+      tools,
       messages,
     });
 
@@ -333,13 +371,13 @@ export async function POST(req: NextRequest) {
     const toolUse = first.content.find((block) => block.type === "tool_use");
 
     if (toolUse) {
-      record("form_shown");
+      record(siteMetric(site, "form_shown"));
 
       final = await anthropic.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system,
-        tools: [CONTACT_TOOL],
+        tools,
         // `tools` must stay — the API rejects a conversation containing
         // tool_use blocks when it is missing. But this call's only job is to
         // write the sentence the visitor reads, so forbid a SECOND tool call:

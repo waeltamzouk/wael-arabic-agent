@@ -1,0 +1,268 @@
+<!--
+  THE ENGLISH SITE'S BUBBLE — waeltamzouk.framer.ai ONLY.
+  The Arabic site uses framer-bubble.html. Never paste this one there.
+
+  DO NOT PASTE YET: the English prompt (lib/prompts/en-templates.ts) is a stub
+  with no catalogue in it. Paste this once that prompt is written and tested.
+
+  Differences from framer-bubble.html, and nothing else:
+    - the iframe loads /embed?site=templates (the English agent)
+    - the "opened" counter is sent with &site=templates, so it lands in
+      templates_opened and never in the Arabic funnel
+    - bottom-RIGHT, English labels, and this site's orange, #ff3801
+
+  WHERE: Framer → Site Settings (the gear) → General → Custom Code →
+         "End of <body> tag" → paste ALL of this → Publish.
+
+  NOT the Insert → Embed component. Embed puts a BOX INSIDE your layout on
+  ONE page. This needs to float above every page, outside the layout, which
+  is what the Custom Code panel is for. It is also where Framer expects
+  third-party chat widgets to go.
+
+  EMBED_ORIGIN below is already set to the live Vercel URL. Only change it if
+  the project is ever renamed or moved to a custom domain. No trailing slash.
+
+  GOTCHA: custom code does NOT run on the Framer canvas or in the editor
+  preview. The bubble only appears on the PUBLISHED site. Publish, then open
+  the real URL to check it.
+
+  THIS FILE IS NOT DEPLOYED. Pushing to GitHub changes nothing here — the
+  live copy is the text sitting in Framer's Custom Code box. Editing this
+  file only matters once you paste it over that box again and publish.
+
+  The brand colour is --wael-accent at the top of the <style> block, in one
+  place. It matches the [data-site="templates"] --accent in app/globals.css;
+  change both together.
+
+  The launcher button lives HERE, on the Framer side. The chat panel lives in
+  the iframe, on Vercel. That split is deliberate: to put the button inside
+  the iframe, the iframe would have to cover the whole screen, and it would
+  swallow every click on the rest of your page.
+-->
+
+<script>
+  var EMBED_ORIGIN = "https://wael-arabic-agent.vercel.app";
+  var SITE = "templates";
+</script>
+
+<style>
+  :root {
+    /* This site's orange, measured off its own buttons — NOT the Arabic
+       site's #ff4a11. Same value as [data-site="templates"] in globals.css. */
+    --wael-accent: #ff3801;
+  }
+
+  /* Bottom-RIGHT: the conventional side on an LTR English site. */
+  #wael-chat-launcher {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2147483000;
+
+    width: 60px;
+    height: 60px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0;
+
+    background: var(--wael-accent);
+    color: #ffffff;
+    cursor: pointer;
+    /* Tinted rather than neutral black: a grey shadow under a saturated
+       button reads as dirty. Same hue, low opacity. */
+    box-shadow: 0 8px 24px rgba(255, 56, 1, 0.35);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #wael-chat-launcher:hover {
+    transform: scale(1.06);
+    box-shadow: 0 10px 28px rgba(255, 56, 1, 0.45);
+  }
+
+  /* The focus ring stays DARK on purpose, and this is not an oversight: a
+     ring has to contrast with the BUTTON it is around, and an orange ring
+     around an orange button is the one colour that cannot do that. Dark
+     works against both the button and a light page. */
+  #wael-chat-launcher:focus-visible {
+    outline: 3px solid #18181b;
+    outline-offset: 3px;
+  }
+
+  #wael-chat-launcher svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  #wael-chat-panel {
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    z-index: 2147483000;
+
+    width: 380px;
+    height: min(600px, calc(100vh - 140px));
+
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+
+    /* Hidden state. `visibility` (not `display`) so the panel can animate,
+       and so the iframe is not torn down and reloaded on every close. */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px) scale(0.98);
+    transform-origin: bottom right;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  }
+
+  #wael-chat-panel.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Phones: fill the screen. A 380px panel on a 390px screen looks broken. */
+  @media (max-width: 480px) {
+    #wael-chat-panel {
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+    }
+    #wael-chat-launcher {
+      bottom: 16px;
+      right: 16px;
+    }
+  }
+</style>
+
+<button
+  id="wael-chat-launcher"
+  type="button"
+  aria-label="Open chat with Wael's template assistant"
+  aria-expanded="false"
+>
+  <!-- Two icons in one button: chat when closed, X when open. -->
+  <svg id="wael-chat-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.2 9.2 0 0 1-2.9-.4L3 21l1.6-4.6A8.3 8.3 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 9 8.4Z" />
+  </svg>
+  <svg id="wael-chat-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display: none" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+</button>
+
+<iframe
+  id="wael-chat-panel"
+  title="Wael's template assistant"
+  loading="lazy"
+></iframe>
+
+<script>
+  (function () {
+    var launcher = document.getElementById("wael-chat-launcher");
+    var panel = document.getElementById("wael-chat-panel");
+    var iconOpen = document.getElementById("wael-chat-icon-open");
+    var iconClose = document.getElementById("wael-chat-icon-close");
+    var open = false;
+    var loaded = false;
+
+    // Links inside the chat open in the SAME tab, so the visitor leaves this
+    // page and comes back. Remember that the panel was open, or they return
+    // to a closed bubble and think the conversation is gone. The chat itself
+    // remembers its own messages, on the Vercel side.
+    // sessionStorage here is FIRST-party (your own domain), so it is reliable
+    // even in browsers that block third-party storage.
+    var OPEN_KEY = "wael-chat:open";
+
+    function remember(isOpen) {
+      try {
+        sessionStorage.setItem(OPEN_KEY, isOpen ? "1" : "0");
+      } catch (e) {
+        /* private mode, or storage disabled. Not worth breaking over. */
+      }
+    }
+
+    function setOpen(next) {
+      open = next;
+      remember(open);
+      panel.classList.toggle("is-open", open);
+      launcher.setAttribute("aria-expanded", String(open));
+      launcher.setAttribute(
+        "aria-label",
+        open ? "Close chat" : "Open chat with Wael's template assistant"
+      );
+      iconOpen.style.display = open ? "none" : "";
+      iconClose.style.display = open ? "" : "none";
+
+      // Load the iframe only on the FIRST open. A visitor who never clicks
+      // never touches Vercel, so the page stays fast and the API stays quiet.
+      if (open && !loaded) {
+        panel.src = EMBED_ORIGIN + "/embed?site=" + SITE;
+        loaded = true;
+      }
+    }
+
+    // Counts that someone opened the chat at all — the one funnel step the
+    // API cannot see, because a visitor who opens the bubble and never types
+    // never sends a request. Fires ONCE per tab, on a real click.
+    //
+    // NOT on the auto-reopen restore below: that is the same visitor arriving
+    // on the next page, and counting it would turn one curious person into
+    // five. The sessionStorage flag is what makes it once-per-visitor.
+    //
+    // sendBeacon is used because it survives the page being navigated away
+    // from, which is exactly what happens when someone clicks a link in the
+    // chat. No body and no custom headers, so the browser sends it as a simple
+    // request with no CORS preflight. Nothing about the visitor is sent.
+    var COUNT_KEY = "wael-chat:counted";
+
+    function countOpen() {
+      try {
+        if (sessionStorage.getItem(COUNT_KEY) === "1") return;
+        sessionStorage.setItem(COUNT_KEY, "1");
+      } catch (e) {
+        /* Storage blocked. Counting twice is better than breaking the chat. */
+      }
+
+      var url = EMBED_ORIGIN + "/api/event?name=opened&site=" + SITE;
+
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon(url)) return;
+        fetch(url, { method: "POST", mode: "no-cors", keepalive: true });
+      } catch (e) {
+        /* A counter is never worth an error in front of a visitor. */
+      }
+    }
+
+    launcher.addEventListener("click", function () {
+      if (!open) countOpen();
+      setOpen(!open);
+    });
+
+    // The X inside the panel. The panel cannot hide itself — it is the parent
+    // page that shows and hides it — so it asks by postMessage.
+    window.addEventListener("message", function (event) {
+      // Only ever act on a message from our own iframe. Without this check,
+      // any embedded third party could close the panel, or worse.
+      if (event.origin !== EMBED_ORIGIN) return;
+      if (event.data && event.data.type === "wael-chat:close") setOpen(false);
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && open) setOpen(false);
+    });
+
+    // Coming back from a link the visitor followed: reopen where they were.
+    try {
+      if (sessionStorage.getItem(OPEN_KEY) === "1") setOpen(true);
+    } catch (e) {
+      /* nothing stored, nothing to restore. */
+    }
+  })();
+</script>

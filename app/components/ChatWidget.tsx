@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ContactForm from "./ContactForm";
+import { DEFAULT_SITE, type Site } from "@/lib/site";
 
 type Message = {
   role: "user" | "assistant";
@@ -16,10 +17,41 @@ type LeadState = {
   notes: Record<string, unknown>;
 };
 
-const WELCOME =
-  "أهلاً بك. أنا مساعد وائل لتصميم المواقع. اسألني عن الخدمات أو الأسعار.";
-
-const GENERIC_ERROR = "تعذر الاتصال بالمساعد. حاول مرة أخرى.";
+// Every visible string, per site. The Arabic set is exactly what shipped
+// before the English site existed. `welcome` is shown in the browser only and
+// never sent to Claude — which is why both prompts ban greeting back.
+const UI = {
+  waelwebdesign: {
+    lang: "ar",
+    dir: "rtl",
+    welcome:
+      "أهلاً بك. أنا مساعد وائل لتصميم المواقع. اسألني عن الخدمات أو الأسعار.",
+    title: "مساعد وائل",
+    subtitle: "تصميم مواقع على فريمر",
+    close: "إغلاق المحادثة",
+    typing: "يكتب…",
+    error: "تعذر الاتصال بالمساعد. حاول مرة أخرى.",
+    retry: "إعادة المحاولة",
+    placeholder: "اكتب رسالتك…",
+    inputLabel: "اكتب رسالتك",
+    send: "إرسال",
+  },
+  templates: {
+    lang: "en",
+    dir: "ltr",
+    welcome:
+      "Hi, I'm Wael's template assistant. Tell me what you're building and I'll help you find the right Framer template.",
+    title: "Template assistant",
+    subtitle: "Framer templates by Wael",
+    close: "Close chat",
+    typing: "Typing…",
+    error: "Couldn't reach the assistant. Please try again.",
+    retry: "Try again",
+    placeholder: "Type your message…",
+    inputLabel: "Type your message",
+    send: "Send",
+  },
+} as const satisfies Record<Site, Record<string, string>>;
 
 // Same-origin by default, which is all the iframe at /embed needs. The env var
 // exists for the day the widget is dropped straight onto waelwebdesign.com
@@ -50,6 +82,8 @@ type Props = {
   // "card"  — the bordered box on the marketing homepage.
   // "panel" — edge to edge inside the iframe, with a close button.
   variant?: "card" | "panel";
+  // Which site's agent this panel talks to. Sent to /api/chat as `?site=`.
+  site?: Site;
 };
 
 // Links now open in the SAME tab, which destroys this component and its state.
@@ -57,12 +91,20 @@ type Props = {
 // point of same-tab links is lost. sessionStorage is the right scope: it
 // survives navigation and the back button, and clears when the tab closes, so
 // a shared computer never shows the last person's conversation.
-const STORAGE_KEY = "wael-chat:messages";
+//
+// Keys are per site, so a visitor who has both sites open never sees one
+// agent's conversation in the other. The Arabic keys are unchanged, so live
+// conversations on waelwebdesign.com survive the deploy that added this.
+function storageKey(site: Site) {
+  return site === DEFAULT_SITE ? "wael-chat:messages" : `wael-chat:${site}:messages`;
+}
 
 // A SEPARATE key, not a new field on the messages. Conversations saved by the
 // previous version still load unchanged, and `isMessage` stays the one shape
 // check for the list.
-const LEAD_KEY = "wael-chat:lead";
+function leadKey(site: Site) {
+  return site === DEFAULT_SITE ? "wael-chat:lead" : `wael-chat:${site}:lead`;
+}
 
 function isMessage(value: unknown): value is Message {
   return (
@@ -86,9 +128,9 @@ function isLeadState(value: unknown): value is LeadState {
   );
 }
 
-function loadLead(): LeadState | null {
+function loadLead(site: Site): LeadState | null {
   try {
-    const raw = sessionStorage.getItem(LEAD_KEY);
+    const raw = sessionStorage.getItem(leadKey(site));
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     return isLeadState(parsed) ? parsed : null;
@@ -97,11 +139,11 @@ function loadLead(): LeadState | null {
   }
 }
 
-function loadMessages(): Message[] {
+function loadMessages(site: Site): Message[] {
   // Every access is wrapped: storage throws outright in some privacy modes,
   // and a third-party iframe can be denied it entirely.
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey(site));
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter(isMessage) : [];
@@ -110,8 +152,13 @@ function loadMessages(): Message[] {
   }
 }
 
-export default function ChatWidget({ variant = "card" }: Props) {
+export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Props) {
   const isPanel = variant === "panel";
+  const t = UI[site];
+  // No param for the Arabic site, so its requests are byte-for-byte what they
+  // were before the English site existed.
+  const chatUrl =
+    site === DEFAULT_SITE ? CHAT_ENDPOINT : `${CHAT_ENDPOINT}?site=${site}`;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -147,11 +194,11 @@ export default function ChatWidget({ variant = "card" }: Props) {
   // empty list, so reading storage during the first render is a hydration
   // mismatch.
   useEffect(() => {
-    const restored = loadMessages();
+    const restored = loadMessages(site);
     if (restored.length) setMessages(restored);
-    const restoredLead = loadLead();
+    const restoredLead = loadLead(site);
     if (restoredLead) setLead(restoredLead);
-  }, []);
+  }, [site]);
 
   useEffect(() => {
     // Never write an empty list. On mount this effect runs BEFORE the restore
@@ -159,31 +206,31 @@ export default function ChatWidget({ variant = "card" }: Props) {
     // conversation we are trying to bring back.
     if (messages.length === 0) return;
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      sessionStorage.setItem(storageKey(site), JSON.stringify(messages));
     } catch {
       // Storage blocked. The chat still works, it just will not survive a
       // same-tab navigation.
     }
-  }, [messages]);
+  }, [messages, site]);
 
   useEffect(() => {
     try {
       // Unlike the message list, null is a real state worth writing: it is how
       // a dismissed form stays dismissed across a page change.
-      if (lead) sessionStorage.setItem(LEAD_KEY, JSON.stringify(lead));
-      else sessionStorage.removeItem(LEAD_KEY);
+      if (lead) sessionStorage.setItem(leadKey(site), JSON.stringify(lead));
+      else sessionStorage.removeItem(leadKey(site));
     } catch {
       // Storage blocked. The form still works, it just will not survive a
       // same-tab navigation.
     }
-  }, [lead]);
+  }, [lead, site]);
 
   async function sendHistory(history: Message[]) {
     setError(null);
     setLoading(true);
 
     try {
-      const res = await fetch(CHAT_ENDPOINT, {
+      const res = await fetch(chatUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history }),
@@ -199,7 +246,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
       if (!res.ok || !data.reply) {
         // `notice` is written for the visitor and is safe to show. `error` is
         // for the logs and can be raw English from the API, so it never is.
-        throw new Error(data.notice ?? GENERIC_ERROR);
+        throw new Error(data.notice ?? t.error);
       }
 
       setMessages([...history, { role: "assistant", content: data.reply }]);
@@ -209,7 +256,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
         setLead({ status: "pending", ...data.contactForm });
       }
     } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : GENERIC_ERROR);
+      setError(e instanceof Error && e.message ? e.message : t.error);
     } finally {
       setLoading(false);
     }
@@ -249,6 +296,12 @@ export default function ChatWidget({ variant = "card" }: Props) {
 
   return (
     <div
+      // The root layout is <html lang="ar" dir="rtl">, shared by every page,
+      // so the English panel sets its own direction here. `data-site` picks
+      // the site's accent colour in globals.css.
+      lang={t.lang}
+      dir={t.dir}
+      data-site={site}
       className={[
         // `min-h-0 flex-1` for BOTH variants, never `h-full`. A percentage
         // height needs a parent with a DEFINITE height, and neither parent
@@ -267,10 +320,10 @@ export default function ChatWidget({ variant = "card" }: Props) {
       <header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            مساعد وائل
+            {t.title}
           </h2>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            تصميم مواقع على فريمر
+            {t.subtitle}
           </p>
         </div>
 
@@ -282,7 +335,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
               // checks the iframe's origin before acting on it.
               window.parent?.postMessage({ type: CLOSE_MESSAGE }, "*")
             }
-            aria-label="إغلاق المحادثة"
+            aria-label={t.close}
             className="-me-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
           >
             <svg
@@ -310,7 +363,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
         // which is why a restored conversation exposed it first.
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
       >
-        <Bubble role="assistant">{WELCOME}</Bubble>
+        <Bubble role="assistant">{t.welcome}</Bubble>
 
         {messages.map((m, i) => (
           <Bubble key={i} role={m.role}>
@@ -333,7 +386,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
 
         {loading && (
           <div className="self-start rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-            يكتب…
+            {t.typing}
           </div>
         )}
 
@@ -346,7 +399,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
                 onClick={() => void sendHistory(messages)}
                 className="ms-2 font-medium underline underline-offset-2"
               >
-                إعادة المحاولة
+                {t.retry}
               </button>
             )}
           </div>
@@ -363,8 +416,8 @@ export default function ChatWidget({ variant = "card" }: Props) {
           onKeyDown={handleKeyDown}
           rows={1}
           dir="auto"
-          placeholder="اكتب رسالتك…"
-          aria-label="اكتب رسالتك"
+          placeholder={t.placeholder}
+          aria-label={t.inputLabel}
           className="max-h-32 min-h-11 flex-1 resize-none rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-accent dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500"
         />
         <button
@@ -372,7 +425,7 @@ export default function ChatWidget({ variant = "card" }: Props) {
           disabled={loading || input.trim().length === 0}
           className="h-11 shrink-0 rounded-xl bg-accent px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
-          إرسال
+          {t.send}
         </button>
       </form>
     </div>

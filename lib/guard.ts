@@ -16,6 +16,10 @@ export type GuardFailure = {
   status: number;
   error: string;
   notice: string;
+  // The same notice for the English templates site. Optional so the lead
+  // route's own Arabic-only failures need no change; the chat route falls back
+  // to a generic English line when it is missing.
+  noticeEn?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -27,6 +31,9 @@ export type GuardFailure = {
 const SITE_ORIGINS = [
   "https://waelwebdesign.com",
   "https://www.waelwebdesign.com",
+  // The English templates site. Needed for the "opened" beacon, which is sent
+  // from the Framer page itself, not from inside the iframe.
+  "https://waeltamzouk.framer.ai",
 ];
 
 function isDev() {
@@ -165,11 +172,14 @@ export function rateLimit(ip: string): GuardFailure | null {
           error: `Rate limit exceeded (hourly) for ${ip}.`,
           notice:
             "وصلت للحد الأقصى من الرسائل لهذه الساعة. جرّب بعد شوي، أو تواصل مع وائل مباشرة على https://waelwebdesign.com/contact",
+          noticeEn:
+            "You have reached the message limit for this hour. Please try again later.",
         }
       : {
           status: 429,
           error: `Rate limit exceeded (per minute) for ${ip}.`,
           notice: "رسائل كثيرة في وقت قصير. انتظر دقيقة ثم حاول مرة أخرى.",
+          noticeEn: "Too many messages in a short time. Wait a minute and try again.",
         };
   }
 
@@ -198,6 +208,8 @@ export const MAX_TOTAL_CHARS = 20_000;
 // the tab clears it. Say the thing that actually works.
 const TOO_LONG_NOTICE =
   "المحادثة طويلة جداً. أغلق التبويب وافتح الموقع من جديد لتبدأ محادثة جديدة، أو تواصل مع وائل على https://waelwebdesign.com/contact";
+const TOO_LONG_NOTICE_EN =
+  "This conversation is too long. Close the tab and open the site again to start a new one.";
 
 export function checkSize(
   messages: { content: string }[]
@@ -207,6 +219,7 @@ export function checkSize(
       status: 413,
       error: `Too many messages: ${messages.length} (max ${MAX_MESSAGES}).`,
       notice: TOO_LONG_NOTICE,
+      noticeEn: TOO_LONG_NOTICE_EN,
     };
   }
 
@@ -218,6 +231,7 @@ export function checkSize(
         status: 413,
         error: `Message too long: ${message.content.length} chars (max ${MAX_MESSAGE_CHARS}).`,
         notice: "الرسالة طويلة جداً. اختصرها وحاول مرة أخرى.",
+        noticeEn: "That message is too long. Shorten it and try again.",
       };
     }
     total += message.content.length;
@@ -228,6 +242,7 @@ export function checkSize(
       status: 413,
       error: `Conversation too long: ${total} chars (max ${MAX_TOTAL_CHARS}).`,
       notice: TOO_LONG_NOTICE,
+      noticeEn: TOO_LONG_NOTICE_EN,
     };
   }
 

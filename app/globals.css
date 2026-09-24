@@ -36,6 +36,23 @@
   }
 }
 
+/* The English templates site (waeltamzouk.framer.ai) has its own orange,
+   #ff3801, measured off its buttons. Set on the widget's root through
+   data-site, so the Arabic panel is untouched. Same two-token rule as above:
+   #ff3801 on white is 3.6:1, fine for a button, too light for link text, so
+   --accent-text is darkened to #c22a00 (5.8:1). */
+[data-site="templates"] {
+  --accent: #ff3801;
+  --accent-text: #c22a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* On near-black the real accent is already 5.5:1, same as the Arabic side. */
+  [data-site="templates"] {
+    --accent-text: #ff3801;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

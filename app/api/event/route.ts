@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, corsHeaders, isAllowedOrigin, rateLimit } from "@/lib/guard";
+import { siteFromParam, siteMetric } from "@/lib/site";
 import { record } from "@/lib/stats";
 
 // Nothing else is countable from the browser. An allowlist means a stranger
@@ -33,12 +34,15 @@ export async function POST(req: NextRequest) {
   }
 
   const name = req.nextUrl.searchParams.get("name") ?? "";
+  // Same `?site=` as /api/chat. No param is the Arabic site, which is what the
+  // live waelwebdesign.com snippet sends.
+  const site = siteFromParam(req.nextUrl.searchParams.get("site"));
 
-  if (!ALLOWED_EVENTS.has(name)) {
+  if (!ALLOWED_EVENTS.has(name) || !site) {
     return new NextResponse(null, { status: 400, headers: corsHeaders(req) });
   }
 
-  record(name);
+  record(siteMetric(site, name));
 
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
 }

@@ -10,6 +10,8 @@ const FRAME_ANCESTORS = [
   "'self'",
   "https://waelwebdesign.com",
   "https://*.waelwebdesign.com",
+  // The English templates site (its bubble loads /embed?site=templates).
+  "https://waeltamzouk.framer.ai",
   // Framer's own preview domains, so the bubble can be tested before publishing.
   "https://*.framer.website",
   "https://*.framer.app",

@@ -1060,18 +1060,44 @@ And for Wael: start a fresh chat at the start of each week's task.
   `lib/prompts/en-templates.ts`, chosen by a `site` param on `/embed`.
   Two folders would mean every gotcha in this file gets fixed twice, or
   silently drifts. The prompt is the ONLY thing that differs.
-- DONE W7-T1 (Sep 24): the split. `lib/prompts/index.ts` has the `Site`
-  type (`"waelwebdesign" | "templates"`), `promptFor(site)` and
-  `isSite()`. `en-templates.ts` is a STUB. `/api/chat` still always uses
-  `DEFAULT_SITE` (the Arabic one) — `site` is not read from the request
-  yet, so wiring `/embed` → widget → route is the next step.
-  Verified: the Arabic prompt is byte-identical to the old file, and the
-  cache still hits (write 9,382, then read 9,382 — same as Sep 24).
-- GOTCHA for Phase 6: the two language directives in `route.ts`
-  (`ARABIC_DIRECTIVE`, `ENGLISH_DIRECTIVE`) are ALSO Arabic-site text —
-  they mention Wael's site page links and "the six templates". The English
-  site needs its own directives, so "the prompt is the only thing that
-  differs" is not quite true. Pick directives by site too.
+- DONE W7-T1 (Sep 24): the split. Verified: the Arabic prompt is
+  byte-identical to the old file, and the cache still hits (write 9,382,
+  then read 9,382 — same as Sep 24).
+- WIRED Sep 24 (Phase 6 start). How `site` flows, end to end:
+  `framer-bubble-en.html` → `/embed?site=templates` → `ChatWidget site=` →
+  `POST /api/chat?site=templates` → `promptFor(site)` + that site's
+  directives. NO param anywhere = the Arabic site, so the live
+  waelwebdesign.com snippet keeps working with no re-paste. An unknown
+  value is refused (`/embed` 404, `/api/chat` 400) instead of silently
+  answering as Arabic, so a typo in a paste is obvious.
+- `lib/site.ts` holds `Site`, `DEFAULT_SITE`, `siteFromParam`,
+  `siteMetric`. It is SEPARATE from `lib/prompts` on purpose: the widget is
+  a browser component, and importing `lib/prompts` there would ship the
+  whole system prompt to every visitor. `lib/prompts` is server only.
+- `site` is a QUERY PARAM, not a body field, so it is known before the body
+  is read and even the origin/rate-limit refusals answer in English on the
+  English site (`noticeEn` on the guard's failures).
+- What differs per site, and ONLY this: prompt, per-reply directives
+  (the Arabic ones name waelwebdesign.com and "the six templates"; the
+  English ones are in `en-templates.ts`), UI strings + `dir`/`lang` (the
+  `UI` table in `ChatWidget.tsx`), accent (`[data-site="templates"]` in
+  `globals.css`, `#ff3801` measured off that site's buttons, link text
+  `#c22a00` for 5.8:1), sessionStorage keys, funnel counter names
+  (`templates_*`, via `siteMetric` — the Arabic funnel and /stats are
+  untouched), and TOOLS: the English site gets NO tool until its own
+  email tool exists, so it can never show the Arabic name + phone form.
+- `waeltamzouk.framer.ai` added to `SITE_ORIGINS` (for the "opened"
+  beacon, which comes from the Framer page) and to `frame-ancestors`.
+- Verified on localhost at 380x600: English panel LTR, English strings,
+  request `?site=templates`, send `rgb(255,56,1)`, link `rgb(194,42,0)`,
+  own storage key, stub prompt refused to invent a price. Arabic panel:
+  RTL, `rgb(255,74,17)`, request has NO `?site`, `كم سعر صفحة هبوط؟`
+  answered 800. Bogus site: embed 404, api 400, event 400.
+- NOT DONE, in order: (1) the real English prompt — the catalogue from
+  Wael, not crawled off the site (see the page-tree gotcha); (2) the email
+  tool for the 30% code → Resend Audience; (3) templates rows on /stats;
+  (4) paste `framer-bubble-en.html` into waeltamzouk.framer.ai. Do NOT
+  paste before (1): the stub only says "details aren't available yet".
 - The English site's "Take the quiz" button is currently DEAD — it goes
   nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
   building and recommends a template is a conversation wearing a form's
