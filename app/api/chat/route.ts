@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { SYSTEM_PROMPT } from "@/lib/system-prompt";
+import { DEFAULT_SITE, promptFor, type Site } from "@/lib/prompts";
 import { depthMetric, record } from "@/lib/stats";
 import {
   checkSize,
@@ -234,11 +234,14 @@ function languageOf(messages: ChatMessage[]): "ar" | "en" {
 // one write, then cheap reads. A lone visitor an hour is roughly break-even;
 // a busy day is a real saving. It changes nothing about the answers: the model
 // receives identical tokens either way, caching only skips re-processing them.
-function systemFor(language: "ar" | "en"): Anthropic.TextBlockParam[] {
+//
+// Each SITE has its own prompt, so each site gets its own cached prefix. That
+// is correct and costs nothing extra: a visitor only ever talks to one site.
+function systemFor(site: Site, language: "ar" | "en"): Anthropic.TextBlockParam[] {
   return [
     {
       type: "text",
-      text: SYSTEM_PROMPT,
+      text: promptFor(site),
       cache_control: { type: "ephemeral" },
     },
     {
@@ -292,7 +295,8 @@ export async function POST(req: NextRequest) {
     // last message is a tool_result, so recomputing it there would read the
     // wrong message and could flip the language mid-answer.
     const language = languageOf(messages);
-    const system = systemFor(language);
+    // Every request is the Arabic site until /embed passes `site` through.
+    const system = systemFor(DEFAULT_SITE, language);
 
     // Funnel milestones. `depthMetric` only returns a value at exact depths a
     // conversation passes through once, so this counts each conversation once

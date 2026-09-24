@@ -97,8 +97,10 @@ Explain as you go. Ask before big changes.
 - `@anthropic-ai/sdk` is installed and committed (Week 2).
 
 ## API route notes
-- Route is `app/api/chat/route.ts`. Prompt is `lib/system-prompt.ts`,
-  kept separate so ~20 pages of site content can grow there later.
+- Route is `app/api/chat/route.ts`. The Arabic prompt is
+  `lib/prompts/ar-waelwebdesign.ts` (was `lib/system-prompt.ts` until
+  W7-T1), kept separate so ~20 pages of site content can grow there later.
+  Older notes below that say `lib/system-prompt.ts` mean this file.
 - Model `claude-sonnet-4-5`, confirmed working through the SDK.
 - `new Anthropic()` with no arguments reads `ANTHROPIC_API_KEY` from the
   environment by itself. That is why `.env.local` exists.
@@ -297,7 +299,7 @@ Explain as you go. Ask before big changes.
 - Six Framer templates, each with an Arabic and an English version at
   the SAME price. Free: بصمة (Navarro), حدة رقمية (Boldcore),
   نُقطة (Nokta). $99: بوصلة (Pillarum), سَرْد (Narric), نَبض (Pulsai).
-- All knowledge lives in `lib/system-prompt.ts`. One file, editable.
+- All knowledge lives in `lib/prompts/ar-waelwebdesign.ts`. One file, editable.
 - Rules that were decided, not guessed: unlimited sites, no reselling,
   no refunds, lifetime updates, 1 month support on paid only, images
   and fonts included, free templates need email but no card.
@@ -1055,6 +1057,18 @@ And for Wael: start a fresh chat at the start of each week's task.
   `lib/prompts/en-templates.ts`, chosen by a `site` param on `/embed`.
   Two folders would mean every gotcha in this file gets fixed twice, or
   silently drifts. The prompt is the ONLY thing that differs.
+- DONE W7-T1 (Sep 24): the split. `lib/prompts/index.ts` has the `Site`
+  type (`"waelwebdesign" | "templates"`), `promptFor(site)` and
+  `isSite()`. `en-templates.ts` is a STUB. `/api/chat` still always uses
+  `DEFAULT_SITE` (the Arabic one) — `site` is not read from the request
+  yet, so wiring `/embed` → widget → route is the next step.
+  Verified: the Arabic prompt is byte-identical to the old file, and the
+  cache still hits (write 9,382, then read 9,382 — same as Sep 24).
+- GOTCHA for Phase 6: the two language directives in `route.ts`
+  (`ARABIC_DIRECTIVE`, `ENGLISH_DIRECTIVE`) are ALSO Arabic-site text —
+  they mention Wael's site page links and "the six templates". The English
+  site needs its own directives, so "the prompt is the only thing that
+  differs" is not quite true. Pick directives by site too.
 - The English site's "Take the quiz" button is currently DEAD — it goes
   nowhere. DECIDED: the agent IS the quiz. A quiz that asks what you are
   building and recommends a template is a conversation wearing a form's
@@ -1378,7 +1392,8 @@ And for Wael: start a fresh chat at the start of each week's task.
 - THE HARNESS lives in the scratchpad, not the repo (it would need the
   API key). It talks to the Anthropic API directly, so it spends no
   rate-limit budget and can never send a real lead email. It does NOT
-  copy the prompt: it extracts `SYSTEM_PROMPT` from `lib/system-prompt.ts`
+  copy the prompt: it extracts `SYSTEM_PROMPT` from
+  `lib/prompts/ar-waelwebdesign.ts` (path changed in W7-T1)
   and both directives out of `route.ts` by pulling the template literal
   from the source, so it always tests the string that actually ships.
   Rebuild it the same way — a harness with its own copy of the prompt
