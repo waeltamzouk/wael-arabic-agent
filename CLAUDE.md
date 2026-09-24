@@ -1339,3 +1339,60 @@ And for Wael: start a fresh chat at the start of each week's task.
   minutes, so the win is WITHIN a conversation (one write, then cheap
   reads). At one visitor an hour it is roughly break-even. ~75% off the
   system-prompt cost in a real conversation, not the 90% first claimed.
+
+## The greeting fix, finished (Sep 24)
+- The Sep 22 fix was half done: English tested 9/9 clean, Arabic slipped
+  1 of 2, and testing stopped when the API credits hit zero.
+- ROOT CAUSE, and it was visible in the source without a single API call:
+  the two per-request directives were NOT symmetric. English banned
+  `"Hi", "Hello", "Hey", "Welcome"` **or any other greeting word** — a
+  catch-all. Arabic banned exactly four strings and stopped. The model
+  went out through `أهلاً وسهلاً`, which is not one of the four. A closed
+  list reads to the model as the WHOLE rule.
+- `السلام عليكم` was the bigger hole: it was not on the list either, and
+  it pulls hard for the reflexive `وعليكم السلام`. So the Arabic
+  directive now says the list is EXAMPLES not a limit
+  (`وهذي أمثلة وليست حصراً`), names 12 forms, and adds a separate line
+  banning RECIPROCATING a greeting the visitor opened with.
+- SECOND, SMALLER SLIP, only found by measuring: the ban on
+  "كيف أقدر أساعدك" was read as being about the OPENING only. The reply
+  would start with real content, answer properly, then bolt the generic
+  question on the END. Fixed by saying the ban covers the whole reply,
+  `أوله وآخره`.
+- IMPORTANT, do not "fix" this by banning closing questions outright: a
+  CONCRETE closing question is good and wanted
+  (`تبغى موقعاً جديداً، أو تتصفح القوالب الجاهزة؟`). Only the generic
+  "how can I help you" is banned. The directive now says so explicitly,
+  and every clean reply still ends with a concrete one.
+- MEASURED, not eyeballed. 5 runs per greeting per language:
+  `مرحبا` 5/5, `السلام عليكم` 5/5, `hi` 5/5, `hello` 5/5 — 20/20 clean,
+  zero greeting words, zero content-free replies. English re-run after
+  the Arabic edit to prove no regression.
+- LESSON, and it is the fourth time on this project: one trial proves
+  NOTHING on a slippage bug. The Sep 22 session called English "fixed"
+  off 9 runs and Arabic "slipping" off 2. Run at least 5 per case and
+  count, or you are reading noise.
+- LESSON: when a rule holds in one language and slips in the other,
+  suspect the WORDING before the language. Diff the two directives
+  side by side first — it is free and it was the whole answer here.
+- THE HARNESS lives in the scratchpad, not the repo (it would need the
+  API key). It talks to the Anthropic API directly, so it spends no
+  rate-limit budget and can never send a real lead email. It does NOT
+  copy the prompt: it extracts `SYSTEM_PROMPT` from `lib/system-prompt.ts`
+  and both directives out of `route.ts` by pulling the template literal
+  from the source, so it always tests the string that actually ships.
+  Rebuild it the same way — a harness with its own copy of the prompt
+  tests nothing.
+- It sets `cache_control` on the system block. 20 runs re-send the same
+  ~9,100 tokens, so caching cuts the bill to roughly one full-price send
+  per language. The model sees identical tokens either way, so it cannot
+  change the result.
+- GOTCHA: a scratchpad script CANNOT `import Anthropic from
+  "@anthropic-ai/sdk"`. Node resolves from the SCRIPT's folder, not the
+  cwd, so it fails with ERR_MODULE_NOT_FOUND even when you run it from
+  inside the project. Import the absolute path to
+  `node_modules/@anthropic-ai/sdk/index.mjs` instead.
+- GOTCHA: a zero credit balance returns HTTP 400
+  `invalid_request_error`, NOT 401. The key is fine and authentication
+  is fine — it reads as a bad request. Check the message text, not the
+  status.
