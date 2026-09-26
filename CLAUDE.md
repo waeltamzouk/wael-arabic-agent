@@ -1778,3 +1778,25 @@ And for Wael: start a fresh chat at the start of each week's task.
   `phone_number_id`, and the agent's site is one constant in
   `lib/whatsapp-agent.ts`. Per-client numbers means a map from phone number
   id to site + lead email — the same "per-site lead email" W8-T1 lists.
+
+## Business rules for the offer (Sep 26)
+- SOLD ONLY AS AN ADD-ON to a site Wael builds or customises. Never as a
+  standalone chatbot for someone else's website. This is a positioning
+  decision, not a technical limit — a bare chatbot competes on price with
+  every widget on the internet, and the Arabic quality is invisible until
+  someone is already a client.
+- ARABIC QUALITY IS THE PRODUCT: natural Arabic, correct RTL, never stiff.
+  Everything else in here is in service of that.
+- SCOPE SOLD TODAY: website chat only. WhatsApp, CRM and booking are NOT
+  on sale yet — they are 2027, as the "Lead System" from Q2.
+  NOTE THE GAP: the WhatsApp agent is already BUILT AND TESTED (W8-T2).
+  Built is not the same as sold. Do not put it in a quote.
+- The 30% discount-code capture on the English site STAYS. A Sep 26 draft
+  proposed removing it; Wael confirmed keep. It is live in
+  `lib/prompts/en-templates.ts` and is the "email-for-an-offer" line in
+  the offer packages.
+- PRICES LIVE IN ONE PLACE ONLY: `Desktop/Agentic/offer/`, outside this
+  repo because this repo is PUBLIC. Do not copy prices in here — two
+  copies drift, and a Sep 26 draft already disagreed with the offer file
+  ($149/month versus $400/month). If a price is needed, read the offer
+  file.
