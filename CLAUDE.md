@@ -1843,3 +1843,11 @@ And for Wael: start a fresh chat at the start of each week's task.
   (English).
 - Local runs do NOT write to the live counters: `.env.local` has no Upstash
   URL, so local events only reach the `[funnel]` log.
+- GOTCHA, it broke the first deploy: the first push FAILED on Vercel with a
+  type error (`satisfies Record<string, string>` cannot hold the starters
+  array). The dev server does not type-check, so every browser test passed,
+  and a local `tsc --noEmit` was cut short by stray `.next/types/* 2.ts` files
+  and read as clean. The live site kept the old version, so nobody saw a
+  break. LESSON: before pushing, run the REAL build on a clean copy, not tsc:
+  `git archive HEAD | tar -x -C <scratch>`, copy `node_modules` in, then
+  `npx next build` there. It does not disturb the running dev server.

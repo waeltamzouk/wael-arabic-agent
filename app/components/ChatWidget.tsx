@@ -70,7 +70,9 @@ const UI = {
   },
 } as const satisfies Record<
   Site,
-  Record<string, string> & { starters: readonly [string, string, string] }
+  Record<string, string | readonly string[]> & {
+    starters: readonly [string, string, string];
+  }
 >;
 
 // Same-origin by default, which is all the iframe at /embed needs. The env var
