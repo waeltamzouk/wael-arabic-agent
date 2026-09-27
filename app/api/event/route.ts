@@ -14,7 +14,9 @@ import { record } from "@/lib/stats";
 
 // Nothing else is countable from the browser. An allowlist means a stranger
 // cannot invent metric names and pollute the counters.
-const ALLOWED_EVENTS = new Set(["opened"]);
+//   opened      — the launcher was clicked (framer-bubble.html)
+//   starter_tap — a starter question was tapped as the first message (widget)
+const ALLOWED_EVENTS = new Set(["opened", "starter_tap"]);
 
 export async function OPTIONS(req: NextRequest) {
   if (!isAllowedOrigin(req)) return new NextResponse(null, { status: 403 });

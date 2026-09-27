@@ -159,6 +159,10 @@ export async function readTotals(
 // four counters would be the thing that drifts.
 export const METRICS = [
   "opened",
+  // A starter question tapped instead of typing a first message (W9-T1). A
+  // SUBSET of `started`, not a step before it — the tap's request is what
+  // counts `started`.
+  "starter_tap",
   "started",
   "engaged",
   "qualified",
@@ -188,6 +192,7 @@ export const METRICS = [
 // and the Polar webhook is not a chat site at all.
 export const SITE_METRICS = [
   "opened",
+  "starter_tap",
   "started",
   "engaged",
   "qualified",

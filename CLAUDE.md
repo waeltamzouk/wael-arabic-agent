@@ -101,6 +101,10 @@ Explain as you go. Ask before big changes.
       webhook saved in Meta.
       Tick when: Wael messages the test number from his own WhatsApp, gets
       Arabic with the right prices, it remembers, and a lead email arrives.
+- [ ] W9-T1 (Sep 27): three tappable starter questions under the welcome, both
+      sites, plus a `starter_tap` counter. BUILT AND MEASURED LOCALLY at
+      380px on both sites — see "Starter questions (W9-T1)". Tick when:
+      pushed, and /stats shows "First message was a tapped starter" moving.
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
@@ -1800,3 +1804,42 @@ And for Wael: start a fresh chat at the start of each week's task.
   copies drift, and a Sep 26 draft already disagreed with the offer file
   ($149/month versus $400/month). If a price is needed, read the offer
   file.
+
+## Starter questions (W9-T1, Sep 27)
+- WHY: the biggest drop on /stats is between "Opened the bubble" and "Sent a
+  first message". A blank box asks the visitor to think of a question; three
+  buttons hand them one. Watch whether `started` / `opened` rises.
+- UI ONLY, in `ChatWidget.tsx`, as `starters` next to `welcome` in the `UI`
+  table. Exactly three per site. They cost nothing until tapped, and a tapped
+  one is sent as the visitor's own first message, so Claude sees an ordinary
+  question and no prompt changed.
+- ONE SEND PATH: typing and tapping both call `send()`. The chat request is
+  what counts `started`/`engaged`/`qualified` and what the caps and rate limit
+  see, so a tap is counted and capped exactly like typing. Do not give starters
+  a path of their own.
+- VISIBILITY is read from the data, not a flag: shown only while the message
+  list is EMPTY and AFTER sessionStorage has been read (`restored`). Once
+  anything is sent the list is never empty again, and a restored conversation
+  is not empty either — so they cannot come back.
+- GOTCHA, the render-order twin of the save effect that erased restored
+  messages: the server renders an empty list, so without `restored` the
+  starters would flash on every reload of a saved chat before the restore
+  landed. Proved absent: the server HTML contains no starters, and polling a
+  framed `/embed` ~1,000 times during start-up with a saved chat saw them 0
+  times — while the same check with an empty chat DID see them (the control).
+- COUNTER: `starter_tap` (Arabic) and `templates_starter_tap` (English), a
+  beacon to `/api/event` on the tap, same pattern as the launcher's `opened`.
+  It is a SUBSET of `started`, not a step before it, so it lives in the Totals
+  grid on /stats, not in the drop-off table. Only the first message can be a
+  tap — they are gone after that.
+- RTL: `items-start` and `text-start` are logical, so the Arabic buttons sit
+  on the right under the welcome with no extra rule. Never `text-left`.
+- Measured Sep 27 at 380x600: all three per site, right language, Arabic
+  right-aligned (right edge 360 = the welcome's), English left-aligned,
+  `pageOverflow: 0` and list overflow 0 on both sites and on the homepage
+  card. A real click on each site: buttons gone at once, the reply arrived,
+  gone again after reload, and the log showed `[funnel] starter_tap` then
+  `started` (Arabic) and `templates_starter_tap` + `templates_started`
+  (English).
+- Local runs do NOT write to the live counters: `.env.local` has no Upstash
+  URL, so local events only reach the `[funnel]` log.

@@ -28,6 +28,7 @@ const DAYS = 14;
 
 const LABELS: Record<string, string> = {
   opened: "Opened the bubble",
+  starter_tap: "First message was a tapped starter",
   started: "Sent a first message",
   engaged: "Got 3 exchanges in",
   qualified: "Got 6 exchanges in",
@@ -126,7 +127,7 @@ const SITE_VIEWS: {
     title: "waelwebdesign.com",
     subtitle: "Arabic agent — services and templates",
     funnel: FUNNEL,
-    totals: ["lead_project", "lead_template", "lang_ar", "lang_en", "blocked_rate", "blocked_size"],
+    totals: ["starter_tap", "lead_project", "lead_template", "lang_ar", "lang_en", "blocked_rate", "blocked_size"],
     leads: true,
   },
   {
@@ -136,7 +137,7 @@ const SITE_VIEWS: {
     title: "waeltamzouk.framer.ai",
     subtitle: "English templates agent",
     funnel: ["opened", "started", "engaged", "qualified", "discount_offered", "discount_unlocked"],
-    totals: ["discount_bad_email", "discount_list_failed", "discount_no_code", "blocked_rate", "blocked_size"],
+    totals: ["starter_tap", "discount_bad_email", "discount_list_failed", "discount_no_code", "blocked_rate", "blocked_size"],
     leads: false,
   },
   {

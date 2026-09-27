@@ -20,6 +20,11 @@ type LeadState = {
 // Every visible string, per site. The Arabic set is exactly what shipped
 // before the English site existed. `welcome` is shown in the browser only and
 // never sent to Claude — which is why both prompts ban greeting back.
+//
+// `starters` are the tappable questions under the welcome (W9-T1). They are
+// UI, not prompt: they cost nothing until tapped, and a tapped one is sent as
+// the visitor's own first message, so Claude sees an ordinary question.
+// Exactly three — more is clutter.
 const UI = {
   waelwebdesign: {
     lang: "ar",
@@ -35,6 +40,12 @@ const UI = {
     placeholder: "اكتب رسالتك…",
     inputLabel: "اكتب رسالتك",
     send: "إرسال",
+    startersLabel: "أسئلة مقترحة",
+    starters: [
+      "كم تكلفة موقع لشركتي؟",
+      "وش الفرق بين القالب الجاهز والموقع المخصص؟",
+      "أبغى موقع لمشروعي، نبدأ كيف؟",
+    ],
   },
   templates: {
     lang: "en",
@@ -50,8 +61,17 @@ const UI = {
     placeholder: "Type your message…",
     inputLabel: "Type your message",
     send: "Send",
+    startersLabel: "Suggested questions",
+    starters: [
+      "Which template fits my business?",
+      "Which templates are free?",
+      "Single template or All-Access?",
+    ],
   },
-} as const satisfies Record<Site, Record<string, string>>;
+} as const satisfies Record<
+  Site,
+  Record<string, string> & { starters: readonly [string, string, string] }
+>;
 
 // Same-origin by default, which is all the iframe at /embed needs. The env var
 // exists for the day the widget is dropped straight onto waelwebdesign.com
@@ -63,6 +83,7 @@ const CHAT_ENDPOINT = process.env.NEXT_PUBLIC_CHAT_API_URL || "/api/chat";
 // same origin, so a second variable could only ever be set wrong. This handles
 // both "/api/chat" and a full "https://….vercel.app/api/chat".
 const LEAD_ENDPOINT = CHAT_ENDPOINT.replace(/\/api\/chat$/, "/api/lead");
+const EVENT_ENDPOINT = CHAT_ENDPOINT.replace(/\/api\/chat$/, "/api/event");
 
 // What the assistant says once the form has been sent. It is pushed into the
 // conversation as a REAL assistant message, not a separate success card, and
@@ -164,6 +185,11 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lead, setLead] = useState<LeadState | null>(null);
+  // False until sessionStorage has been read. The server renders an empty
+  // list, so without this the starters would flash on every reload of a saved
+  // conversation before the restore landed — the render-order twin of the
+  // save effect that once erased restored messages.
+  const [restored, setRestored] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // The panel owns its whole iframe document, so it owns <html lang/dir> too.
@@ -208,6 +234,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
     if (restored.length) setMessages(restored);
     const restoredLead = loadLead(site);
     if (restoredLead) setLead(restoredLead);
+    setRestored(true);
   }, [site]);
 
   useEffect(() => {
@@ -272,16 +299,44 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
+  // THE one way a visitor's message is sent — typed or tapped. Everything the
+  // server does (funnel milestones, caps, rate limit) keys off this request,
+  // so a starter must never get a path of its own.
+  function send(text: string) {
+    if (!text || loading) return false;
 
     const next: Message[] = [...messages, { role: "user", content: text }];
     setMessages(next);
-    setInput("");
     void sendHistory(next);
+    return true;
   }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (send(input.trim())) setInput("");
+  }
+
+  function handleStarter(text: string) {
+    if (!send(text)) return;
+    // Counted as its own event, on top of the `started` the chat request
+    // records, so /stats can show how many first messages were a tap. Same
+    // beacon as the launcher's `opened` ping in framer-bubble.html.
+    const url =
+      site === DEFAULT_SITE
+        ? `${EVENT_ENDPOINT}?name=starter_tap`
+        : `${EVENT_ENDPOINT}?name=starter_tap&site=${site}`;
+    try {
+      if (navigator.sendBeacon?.(url)) return;
+      void fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+    } catch {
+      // A counter is never worth an error in front of a visitor.
+    }
+  }
+
+  // Read straight from the conversation rather than a flag of their own: once
+  // anything is sent the list is never empty again, and a restored
+  // conversation is not empty either, so they cannot come back.
+  const showStarters = restored && messages.length === 0;
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -374,6 +429,31 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
       >
         <Bubble role="assistant">{t.welcome}</Bubble>
+
+        {showStarters && (
+          <div
+            role="group"
+            aria-label={t.startersLabel}
+            // `items-start` is logical, so under RTL the buttons line up on
+            // the right, under the welcome bubble, with no extra rule.
+            className="flex max-w-[85%] flex-col items-start gap-2 self-start"
+          >
+            {t.starters.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => handleStarter(q)}
+                disabled={loading}
+                // `text-start`, never `text-left`: the physical one does not
+                // flip under RTL. `break-words` so a long line wraps inside
+                // the 380px panel instead of pushing it sideways.
+                className="max-w-full break-words rounded-2xl border border-zinc-200 px-4 py-2 text-start text-sm leading-6 text-zinc-900 transition-colors hover:border-accent hover:text-accent-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 dark:border-zinc-800 dark:text-zinc-100"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
 
         {messages.map((m, i) => (
           <Bubble key={i} role={m.role}>
