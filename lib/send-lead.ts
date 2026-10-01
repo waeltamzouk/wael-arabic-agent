@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { whatsappLink } from "./whatsapp";
+import { DEFAULT_SITE, type Site } from "./site";
 
 export type Lead = {
   name: string;
@@ -38,13 +39,40 @@ function whatsappLine(phone: string) {
     : line("WhatsApp", `no link — ${link.reason}`);
 }
 
-export async function sendLead(lead: Lead) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.LEAD_TO_EMAIL;
+/**
+ * Who gets this site's leads. A client's leads must reach THEIR inbox, not
+ * Wael's, so every site other than the Arabic one reads its own variable:
+ * `templates` -> LEAD_TO_EMAIL_TEMPLATES, `al-noor` -> LEAD_TO_EMAIL_AL_NOOR.
+ * An env var, never a constant in code: this repo is public and a client's
+ * address must not be in it. Comma-separated for a client with two inboxes.
+ *
+ * Missing falls back to LEAD_TO_EMAIL, and `fallback` is true. A lead in the
+ * wrong inbox can be forwarded; a lead that was never sent is gone.
+ */
+function leadRecipients(site: Site): { to: string[]; fallback: boolean } {
+  const split = (value?: string) =>
+    (value ?? "").split(",").map((a) => a.trim()).filter(Boolean);
 
-  if (!apiKey || !to) {
+  if (site !== DEFAULT_SITE) {
+    const own = split(
+      process.env[`LEAD_TO_EMAIL_${site.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`]
+    );
+    if (own.length) return { to: own, fallback: false };
+  }
+  return { to: split(process.env.LEAD_TO_EMAIL), fallback: site !== DEFAULT_SITE };
+}
+
+export async function sendLead(lead: Lead, site: Site = DEFAULT_SITE) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const { to, fallback } = leadRecipients(site);
+
+  if (!apiKey || !to.length) {
     console.error("Lead not sent: RESEND_API_KEY or LEAD_TO_EMAIL is missing.");
     return false;
+  }
+
+  if (fallback) {
+    console.warn(`[lead] no LEAD_TO_EMAIL for site "${site}", sent to LEAD_TO_EMAIL instead.`);
   }
 
   const body = [
@@ -80,7 +108,9 @@ export async function sendLead(lead: Lead) {
       // reply is the one already receiving the lead. That also keeps a real
       // email address out of this file — the repo is public.
       replyTo: to,
-      subject: `New ${lead.channel ? `${lead.channel} ` : ""}${lead.type ?? "project"} lead: ${lead.name} — ${
+      // Tagged only when a site's lead landed in the default inbox, so Wael
+      // sees at a glance that it belongs to someone else and must be forwarded.
+      subject: `${fallback ? `[${site}] ` : ""}New ${lead.channel ? `${lead.channel} ` : ""}${lead.type ?? "project"} lead: ${lead.name} — ${
         lead.project?.trim() || "website"
       }`,
       text: body,

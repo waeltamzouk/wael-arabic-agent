@@ -12,6 +12,7 @@ import { sendLead, type Lead } from "@/lib/send-lead";
 import { whatsappLink } from "@/lib/whatsapp";
 import { isKnownCountryCode } from "@/lib/countries";
 import { record } from "@/lib/stats";
+import { siteFromParam } from "@/lib/site";
 import {
   clientIp,
   corsHeaders,
@@ -158,7 +159,10 @@ export async function POST(req: NextRequest) {
     if (value) lead[field] = value;
   }
 
-  const sent = await sendLead(lead);
+  // Same `?site=` as /api/chat, and it decides whose inbox the lead goes to.
+  // No param is the Arabic site, so its bubble needs no new Framer paste.
+  const site = siteFromParam(req.nextUrl.searchParams.get("site"));
+  const sent = await sendLead(lead, site);
 
   if (!sent) {
     // sendLead already logged the real reason. The visitor is told to retry,

@@ -182,6 +182,9 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
   // were before the English site existed.
   const chatUrl =
     site === DEFAULT_SITE ? CHAT_ENDPOINT : `${CHAT_ENDPOINT}?site=${site}`;
+  // The lead goes to the site's own inbox, so /api/lead must know the site too.
+  const leadUrl =
+    site === DEFAULT_SITE ? LEAD_ENDPOINT : `${LEAD_ENDPOINT}?site=${site}`;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -470,7 +473,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
             key={JSON.stringify(lead.notes)}
             language={lead.language}
             notes={lead.notes}
-            endpoint={LEAD_ENDPOINT}
+            endpoint={leadUrl}
             onSent={handleLeadSent}
             onDismiss={() => setLead(null)}
           />

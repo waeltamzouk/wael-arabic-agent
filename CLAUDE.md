@@ -28,6 +28,9 @@ NO vector DB, NO RAG — ~20 pages fits in a prompt.
 
 Env vars, all in `.env.local` AND in Vercel project settings:
 `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `LEAD_TO_EMAIL`,
+`LEAD_TO_EMAIL_<SITE>` (one per client site, e.g. `LEAD_TO_EMAIL_TEMPLATES`;
+comma-separated allowed; missing = sent to `LEAD_TO_EMAIL` with `[site]` in
+the subject — see `lib/send-lead.ts`),
 `LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`),
 `STATS_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
 `POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`,
@@ -90,8 +93,8 @@ Explain as you go. Ask before big changes.
 - [x] W8-T1 (Sep 24): the offer — packages, API/overage policy, client
       checklist, exclusions, and the Arabic page copy. Lives OUTSIDE this
       repo (it is public) in `Desktop/Agentic/offer/`. Its section 5 lists
-      what must be built before client #1: per-site lead email (today
-      `LEAD_TO_EMAIL` is one address), per-client numbers, the billing
+      what must be built before client #1: per-site lead email (DONE
+      Oct 1: `LEAD_TO_EMAIL_<SITE>`), per-client numbers, the billing
       alert, and teaching this agent the offer itself (W8-T2).
 - [ ] W8-T2 (Sep 24): the agent answers on WhatsApp. BUILT AND TESTED
       LOCALLY against stand-ins for Meta, Upstash and Resend with REAL
