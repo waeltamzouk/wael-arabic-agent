@@ -32,7 +32,8 @@ Env vars, all in `.env.local` AND in Vercel project settings:
 comma-separated allowed; missing = sent to `LEAD_TO_EMAIL` with `[site]` in
 the subject — see `lib/send-lead.ts`),
 `LEAD_FROM_EMAIL` (defaults to `onboarding@resend.dev`),
-`STATS_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
+`STATS_KEY`, `STATS_KEY_<SITE>` (one per client site, e.g. `STATS_KEY_TEMPLATES`
+— the client dashboard key, see "Client dashboard"), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
 `POLAR_WEBHOOK_SECRET`, `RESEND_AUDIENCE_ID`,
 `LEAD_DEFAULT_COUNTRY_CODE` (optional — see "WhatsApp link"),
 `RESEND_AUDIENCE_ID_EN`, `DISCOUNT_CODE_EN` (see "THE DISCOUNT CODE"),
@@ -1854,3 +1855,34 @@ And for Wael: start a fresh chat at the start of each week's task.
   break. LESSON: before pushing, run the REAL build on a clean copy, not tsc:
   `git archive HEAD | tar -x -C <scratch>`, copy `node_modules` in, then
   `npx next build` there. It does not disturb the running dev server.
+
+## Client dashboard (Oct 1)
+- `/client?site=<site>&key=<key>` — a VIEW-ONLY page a client opens from
+  WhatsApp. `app/client/page.tsx`. Shows only THAT site: conversations this
+  month against the plan limit, the funnel this month, a 30-day chart, what
+  the agent knows, a "Try your assistant" button (`/embed?site=`) and a
+  "Request a change" WhatsApp button. No logins, uploads or editing.
+- `/stats` is Wael's own page (all sites, `STATS_KEY`) and is untouched.
+- The key is `STATS_KEY_<SITE>` (site upper-cased, non-letters to `_`), a
+  DIFFERENT secret per site. Wrong key, missing key, unknown site or no env
+  var for that site all show "Not found." and nothing else. Unlike
+  `siteFromParam`, an unknown site does NOT fall back to the Arabic site.
+- Per-site settings live in `lib/client-content.ts`: `limit` (conversations
+  included, 500), language, funnel steps, and the "what your assistant knows"
+  list with a hand-written `updated` date. Bump that date when the agent's
+  content changes. Public facts only — the repo is public.
+- "Conversation" = the `started` counter, summed over the current month in
+  Riyadh time. The bar turns orange at 80%. The page never says the agent will
+  stop; over the limit it says the agent keeps working.
+- HOW TO GIVE A NEW CLIENT THEIR LINK:
+  1. Add the site to `SITES` in `lib/site.ts`, and to `CLIENT_CONFIG` in
+     `lib/client-content.ts`.
+  2. Make a long random key, e.g. `openssl rand -hex 16`.
+  3. Add `STATS_KEY_<SITE>=<key>` in `.env.local` AND Vercel env vars, then
+     redeploy.
+  4. Send: `https://wael-arabic-agent.vercel.app/client?site=<site>&key=<key>`
+  To cut a client off, delete or change their key.
+- TESTING LOCALLY without real Upstash keys: run a tiny fake Upstash that
+  answers `POST /pipeline`, then start `next dev` with
+  `UPSTASH_REDIS_REST_URL=http://localhost:4010 UPSTASH_REDIS_REST_TOKEN=x
+  STATS_KEY_<SITE>=test`. Env on the command line beats `.env.local`.
