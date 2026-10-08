@@ -83,7 +83,10 @@ const TEXT = {
 
 /** `STATS_KEY_<SITE>`, same naming rule as LEAD_TO_EMAIL_<SITE>. */
 function keyFor(site: Site): string | undefined {
-  return process.env[`STATS_KEY_${site.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`];
+  // Trimmed, because a key pasted into Vercel often carries a trailing space or
+  // line break. An empty result counts as "not set", so the page stays off.
+  const value = process.env[`STATS_KEY_${site.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`]?.trim();
+  return value || undefined;
 }
 
 function keyMatches(given: string, expected: string): boolean {
@@ -115,7 +118,7 @@ function Heading({ children }: { children: React.ReactNode }) {
 export default async function ClientPage({ searchParams }: PageProps<"/client">) {
   const params = await searchParams;
   const rawSite = typeof params.site === "string" ? params.site.trim().toLowerCase() : "";
-  const key = typeof params.key === "string" ? params.key : "";
+  const key = typeof params.key === "string" ? params.key.trim() : "";
 
   // No fallback to the default site here (unlike siteFromParam): an unknown
   // site must show nothing, not the Arabic site's numbers.
