@@ -38,7 +38,10 @@ the subject — see `lib/send-lead.ts`),
 `LEAD_DEFAULT_COUNTRY_CODE` (optional — see "WhatsApp link"),
 `RESEND_AUDIENCE_ID_EN`, `DISCOUNT_CODE_EN` (see "THE DISCOUNT CODE"),
 `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN`,
-`WHATSAPP_PHONE_NUMBER_ID` (see "WhatsApp channel (W8-T2)").
+`WHATSAPP_PHONE_NUMBER_ID` (see "WhatsApp channel (W8-T2)"),
+`RESEND_AUDIENCE_ID_AUDIT`, `AUDIT_CTA_WHATSAPP`, `AUDIT_PUBLIC_URL`, `AUDIT_DAILY_CAP`
+(see "Audit page (W10-T1)"; the dev-only `AUDIT_ALLOW_PRIVATE` and `AUDIT_DRY_RUN`
+are described there too and must NEVER be set in Vercel).
 
 ## About me
 Strong: Framer, design, Arabic.
@@ -109,6 +112,12 @@ Explain as you go. Ask before big changes.
       sites, plus a `starter_tap` counter. BUILT AND MEASURED LOCALLY at
       380px on both sites — see "Starter questions (W9-T1)". Tick when:
       pushed, and /stats shows "First message was a tapped starter" moving.
+- [ ] W10-T1 (Oct 8): the Arabic website audit page at /audit. BUILT AND TESTED
+      LOCALLY (engine, API, pages, emails, limits, production build); NOT YET LIVE.
+      Needs Wael's Resend segment + properties + env vars, a push, and one real
+      end-to-end run. See "Audit page (W10-T1)". Tick when: an audit submitted on
+      production with `?test=` appears in the segment with `website` and
+      `audit_score` set, the report email is in the inbox (not spam), and the link works.
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
@@ -2018,3 +2027,99 @@ And for Wael: start a fresh chat at the start of each week's task.
   hiding phone numbers and emails typed into the chat, and ONE visible line in
   the chat widget saying conversations are saved. Without that line it is a
   privacy problem, not a feature. Build it for Wael's own page first.
+
+
+## Audit page (W10-T1, Oct 8)
+- WHAT: `/audit` is a public page. A visitor gives a website, name and email, and gets a
+  score out of 100 for their ARABIC site plus the 3 biggest problems and fixes, on the
+  page and by email. Name and email go into a new Resend segment. It is a different
+  product from Wael's private `/site-audit` Claude skill (cold-outreach research in
+  `Desktop/Agentic/.claude/skills/site-audit/`); `lib/audit/analyze.ts` is the TypeScript
+  twin of that skill's `probe.py`. Change a check in one, change the other.
+- NO CLAUDE CALLS. Scoring is plain code (`lib/audit/score.ts`) and every Arabic sentence is
+  written once in `lib/audit/copy-ar.ts`. Same site, same score; no per-audit API bill; no
+  model can invent a claim about a stranger's website. The copy is a FIRST DRAFT for Wael
+  to read and correct: his Arabic is the product.
+- FILES: `app/audit/` (page, `AuditForm`, `ReportView`, `r/[id]/page`), `app/api/audit/route.ts`
+  (POST) and `[id]/route.ts` (GET), `lib/audit/` = `safe-fetch` (SSRF guard), `analyze`,
+  `crawl`, `score`, `copy-ar`, `kv`, `store`, `limits`, `lead`, `email`, `run`, `types`.
+  `scripts/serve-fixtures.mjs` + `scripts/audit-fixtures/` (fake sites), `scripts/audit-run.mjs`.
+  Small edits elsewhere: `lib/mailing-list.ts` (`source: "audit"` and extra `properties`,
+  ADDITIVE ONLY), `lib/stats.ts` + `app/stats/page.tsx` (audit counters and a section).
+- FLOW: the route checks the form and limits, creates a job, answers 202 with its id, and runs
+  the audit in `after()` (like the WhatsApp route; `maxDuration = 60`). The report page polls
+  `/api/audit/<id>`. In `after()`, in this order: save the lead FIRST (the lead is the point),
+  run the audit, email the report (once per address per day), save `audit_score`, notify Wael.
+- THE SCORE (100): Arabic 30, Mobile 20, Contact 20, Speed 15, Trust 15. A check that cannot be
+  verified is LEFT OUT of the maths, not counted as a failure, and the report lists it under
+  "what we could not check". A page that is an empty JavaScript shell gets NO score at all: a
+  wrong low score on a good site is the worst failure this product can have.
+- LIMITS: 25 s and 40 requests per audit, 2 MB per page, ~17 files sampled for weight, the
+  homepage plus up to 4 key pages. "Full website" means that, and the page says so.
+- SAFETY, all in `lib/audit/safe-fetch.ts`: only http(s) on 80/443, no credentials, the address
+  checked AT CONNECT TIME (not before: DNS rebinding), every redirect re-checked, caps after
+  decompression. Tested: 34 attack addresses refused, including `localtest.me` (a public name
+  that resolves to 127.0.0.1), decimal/hex IPs and IPv6-mapped IPv4.
+- LIMITS PER VISITOR (`lib/audit/limits.ts`, Upstash): 3 audits/hour and 10/day per IP, 5/day per
+  email, `AUDIT_DAILY_CAP` (default 100) overall; one report email per address per day; one
+  audit per SITE per day (a second visitor for the same hostname gets the same report). Emails
+  are stored only as the first 16 hex characters of a hash. Production without Upstash REFUSES
+  (503), and `kv.ts` throws instead of using memory: shared storage is the only kind that works
+  across Vercel instances.
+- CONSENT: required tick box on the form. The report email carries no unsubscribe link (it is a
+  one-off the visitor asked for), but every BROADCAST to this segment must carry
+  `{{{RESEND_UNSUBSCRIBE_URL}}}` with the segment attached, or it silently resolves to nothing
+  (see "Polar buyers -> mailing list"). `addBuyer` is reused so an unsubscribed person is never
+  resubscribed by asking for an audit.
+- ENV: `RESEND_AUDIENCE_ID_AUDIT` (the segment's UUID), `AUDIT_CTA_WHATSAPP` (digits only: the
+  number stays out of this public repo), `AUDIT_PUBLIC_URL` (where report links point; defaults
+  to the vercel.app URL), `AUDIT_DAILY_CAP`. In Resend, Audience -> Properties must define
+  `website` and `audit_score`; an undefined property is IGNORED SILENTLY, so check the first
+  real contact. Resend allows 2 requests/second per key, so the steps in `run.ts` are spaced.
+- DEV ONLY, ignored when `NODE_ENV=production`: `AUDIT_ALLOW_PRIVATE=1` lets the engine reach
+  localhost (the fixtures), `AUDIT_DRY_RUN=1` logs emails and list-adds instead of sending.
+  `Desktop/Agentic/.claude/launch.json` has `audit-dev` (both on, port 3100), `audit-dev-strict`
+  (dry run only: use it to attack the real route) and `audit-prod` (production build, port 3200).
+- TEST BY HAND: `node scripts/serve-fixtures.mjs`, then
+  `AUDIT_ALLOW_PRIVATE=1 node scripts/audit-run.mjs http://127.0.0.1:8765/bad-clinic/`.
+  Node strips the TypeScript types itself (`allowImportingTsExtensions` is on in tsconfig, and
+  the audit libraries import each other with `.ts` extensions so plain `node` can run them).
+  The fixture server also has `/huge`, `/slow`, `/slowbody`, `/loop`, `/pdf`, `/bomb` (a gzip
+  that unpacks to 300 MB), `/win1256` and `/notfound`, each a way a real site misbehaves.
+- VERIFIED Oct 8: engine vs `probe.py` on the same pages, 22 facts x 2 sites, 0 differences;
+  stress routes all end cleanly (60 MB page and the gzip bomb stop at the 2 MB cap in under
+  a second); bad certificates (expired, self-signed, untrusted root, wrong host) are read and
+  flagged; API gates (17) and the real flow, cache and rate limit; strict mode and the `?test=`
+  switch (nothing counted, `[TEST]` in subjects); the report email at 375 px; hostile names
+  and values come out as inert text; production build; production without Upstash = 503.
+  In the browser at 375 px: no sideways overflow on /audit or the report, every field labelled.
+- GOTCHAS, each found by testing and not by reading:
+  1. `net.BlockList` treats EVERY IPv4 address as living inside `::ffff:0:0/96`, so listing that
+     range blocked the whole internet. Mapped addresses are already caught by the IPv4 rules.
+     It only showed up when the "normal sites must still work" test ran next to the attacks.
+  2. Finishing a request when the SOCKET closes returned an EMPTY body for small gzip/brotli
+     pages: the decompressor had not flushed. Wait for the decoded stream's own `end`/`close`.
+  3. An `sr-only` span inside an `overflow-x-auto` box ESCAPES it unless the box is `relative`
+     (absolute elements are placed against the page), and widened the whole page by 62 px at
+     375 px. Found by measuring `scrollWidth`, invisible to the eye on desktop.
+  4. A code snippet typed bare inside Arabic text is SCRAMBLED by the bidi algorithm (the same
+     bug as chat links). Wrap code in `backticks` in copy-ar.ts; `parts()` splits them and the
+     report and the email render each as an isolated left-to-right chip.
+  5. `probe.py` measured page size AFTER unzipping and called it "transferred" (775 KB for a
+     55 KB page). Fixed there too.
+  6. Weight is a rough lower bound: only files named in the HTML, a sample of them, sizes from
+     `Content-Range` (the file itself, not its compressed size). Sampling the FIRST images
+     overestimated by 40% (they are the hero shots), so the sample is spread evenly.
+  7. Test on two hostnames: audits are cached per HOSTNAME for a day, so the fixtures on
+     `127.0.0.1` and `localhost` are two different "sites".
+  8. A function named `useSomething` is treated as a React Hook by the lint rules. Do not.
+- HONEST LIMITATIONS (also printed on the report page): raw HTML only, so nothing JavaScript
+  draws later, no mirrored icons, no real load time, no judgement of Arabic wording. A
+  CSS-in-JS site (styles injected at runtime) shows no `@media` rules; it is treated as
+  unverified when it has no stylesheet and many scripts.
+- NOT BUILT: Claude-written summaries, PDF export, history, an English page, a phone field,
+  double opt-in, Turnstile (add it if spam shows up), a paid tier. The Playwright-style check
+  in Safari was not done. A real Resend send and a real list-add have NOT been run: only dry run.
+- A pre-existing lint error remains in `app/components/ChatWidget.tsx` (line 282,
+  `react-hooks/set-state-in-effect`). It is the documented "restore in a useEffect" pattern
+  and was not touched.

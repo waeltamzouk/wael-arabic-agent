@@ -190,6 +190,19 @@ export const METRICS = [
   "buyer_no_consent",
   "buyer_failed",
   "polar_refused",
+  // The website audit page (/audit). Written by /api/audit and lib/audit/run.ts.
+  // Not a chat funnel either; same reason as the buyer counters above.
+  "audit_started",
+  "audit_cached",
+  "audit_done",
+  "audit_failed",
+  "audit_invalid",
+  "audit_bot",
+  "audit_blocked_origin",
+  "audit_blocked_ip",
+  "audit_blocked_email",
+  "audit_blocked_global",
+  "audit_blocked_unavailable",
 ] as const;
 
 // The chat counters every OTHER site writes, under its own prefix

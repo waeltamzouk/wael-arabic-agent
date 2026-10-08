@@ -26,8 +26,14 @@ export type Buyer = {
   audienceId?: string;
   /** The template they bought. Stored on the contact so it can be filtered on later. */
   product?: string;
-  /** Where they came from: "polar" (a purchase) or "chat" (the discount code). Defaults to "polar". */
-  source?: "polar" | "chat";
+  /** Where they came from: "polar" (a purchase), "chat" (the discount code) or "audit" (the website audit page). Defaults to "polar". */
+  source?: "polar" | "chat" | "audit";
+  /**
+   * Extra contact properties, merged over the three above. Each key must be defined
+   * in Resend (Audience -> Properties) or Resend IGNORES it silently: check the
+   * first contact after adding a key.
+   */
+  properties?: Record<string, string>;
   /** For the log only: which order put them here, and which list it chose. */
   orderId?: string;
   list?: string;
@@ -75,7 +81,7 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
 
   if (!apiKey || !audienceId) {
     console.error(
-      `Buyer not added: RESEND_API_KEY or the ${buyer.list === "en" ? "RESEND_AUDIENCE_ID_EN" : "RESEND_AUDIENCE_ID"} audience id is missing. The id is on https://resend.com/audiences — a UUID, not the audience's name.`
+      `Buyer not added: RESEND_API_KEY or the ${buyer.source === "audit" ? "RESEND_AUDIENCE_ID_AUDIT" : buyer.list === "en" ? "RESEND_AUDIENCE_ID_EN" : "RESEND_AUDIENCE_ID"} audience id is missing. The id is on https://resend.com/audiences — a UUID, not the audience's name.`
     );
     return "disabled";
   }
@@ -153,6 +159,7 @@ export async function addBuyer(buyer: Buyer): Promise<Outcome> {
         language: buyer.list ?? "",
         template: buyer.product ?? "",
         source: buyer.source ?? "polar",
+        ...buyer.properties,
       },
       // Sent explicitly rather than left to default. There is a known Resend
       // bug where an omitted value lands as unsubscribed, and a contact that

@@ -51,6 +51,17 @@ const LABELS: Record<string, string> = {
   buyer_no_consent: "Did not consent",
   buyer_failed: "Resend refused",
   polar_refused: "Blocked: bad signature",
+  audit_started: "Audits started",
+  audit_cached: "Reused a recent audit (same site)",
+  audit_done: "Audits finished",
+  audit_failed: "Site could not be audited",
+  audit_invalid: "Form refused (bad input)",
+  audit_bot: "Caught by the hidden field (bot)",
+  audit_blocked_origin: "Blocked: bad origin",
+  audit_blocked_ip: "Blocked: too many from one IP",
+  audit_blocked_email: "Blocked: too many for one email",
+  audit_blocked_global: "Blocked: daily cap reached",
+  audit_blocked_unavailable: "Refused: storage unavailable",
   not_text: "Voice notes, photos (not read)",
   send_failed: "Reply not delivered (Meta)",
   lead_failed: "Lead not emailed (Resend)",
@@ -89,6 +100,21 @@ const BUYERS = [
   "buyer_no_consent",
   "buyer_failed",
   "polar_refused",
+] as const;
+
+// The website audit page. Same lesson as BUYERS: a counter nobody renders is invisible.
+const AUDITS = [
+  "audit_started",
+  "audit_cached",
+  "audit_done",
+  "audit_failed",
+  "audit_invalid",
+  "audit_bot",
+  "audit_blocked_ip",
+  "audit_blocked_email",
+  "audit_blocked_global",
+  "audit_blocked_origin",
+  "audit_blocked_unavailable",
 ] as const;
 
 // One section per site, because the two sites are separate businesses with
@@ -359,6 +385,27 @@ export default async function StatsPage({
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {BUYERS.map((metric) => (
+            <div key={metric} className="rounded-lg border border-neutral-200 p-3">
+              <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
+              <div className="mt-1 text-xl font-semibold tabular-nums">
+                {overall[metric] ?? 0}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-10 border-t border-neutral-200 pt-6">
+        <h2 className="text-base font-semibold">Website audits (/audit)</h2>
+        <p className="mb-2 mt-0.5 text-xs text-neutral-500">
+          Started plus Reused is the number of leads that passed every check and
+          reached your Resend list. Finished is audits that produced a report;
+          Could not be audited is a site that was down, blocked us, or was not a
+          web page. If Refused: storage unavailable is above zero, Upstash is
+          missing or wrong in Vercel and nobody can submit.
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {AUDITS.map((metric) => (
             <div key={metric} className="rounded-lg border border-neutral-200 p-3">
               <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
               <div className="mt-1 text-xl font-semibold tabular-nums">
