@@ -2080,6 +2080,16 @@ And for Wael: start a fresh chat at the start of each week's task.
   localhost (the fixtures), `AUDIT_DRY_RUN=1` logs emails and list-adds instead of sending.
   `Desktop/Agentic/.claude/launch.json` has `audit-dev` (both on, port 3100), `audit-dev-strict`
   (dry run only: use it to attack the real route) and `audit-prod` (production build, port 3200).
+- TEST SWITCH, the same one the chat has: open `/audit?test=<STATS_KEY>`. An amber banner shows,
+  the key is kept in `sessionStorage` (`wael-audit:test`) for that tab and sent as the
+  `x-test-key` header, and `?test=off` leaves test mode. A test is not counted in the stats and
+  its emails start with `[TEST]`. IT IS NOT A DRY RUN: the report email, the notice to Wael and the
+  Resend list-add all still happen for real, so test with an address you own and delete the
+  contact afterwards (the banner says so). The key sits in the address bar, so it is in browser
+  history: the same trade-off as the stats page. Read with `useSyncExternalStore` (server and first
+  render get `null`, so no hydration mismatch) because the lint rules forbid setting state in an effect.
+  Verified Oct 8: banner, header sent, banner survives a plain `/audit`, `?test=off` clears it, a
+  made-up key IS counted, the real key is NOT (`[funnel:test] ... (not counted)`).
 - TEST BY HAND: `node scripts/serve-fixtures.mjs`, then
   `AUDIT_ALLOW_PRIVATE=1 node scripts/audit-run.mjs http://127.0.0.1:8765/bad-clinic/`.
   Node strips the TypeScript types itself (`allowImportingTsExtensions` is on in tsconfig, and

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 
 // Same field look as app/components/ContactForm.tsx, so the audit page and the chat
 // form read as one site.
@@ -12,8 +12,39 @@ const ERROR = "mt-1 text-sm text-red-700 dark:text-red-400";
 
 type Field = "website" | "name" | "email" | "consent";
 
+// Wael's test switch (lib/test-mode.ts), the same one the chat widget has.
+// `/audit?test=<STATS_KEY>` turns it on for this tab, `?test=off` turns it off. The
+// key is kept in sessionStorage and only ever travels as the `x-test-key` header.
+// A test is not counted in the stats and its emails start with [TEST]. It is NOT a
+// dry run: the report email, the notice to Wael and the Resend list-add all still
+// happen for real, which is exactly why the banner below says so.
+const TEST_KEY_STORAGE = "wael-audit:test";
+
+function loadTestKey(): string | null {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("test")?.trim();
+    if (fromUrl === "off") {
+      sessionStorage.removeItem(TEST_KEY_STORAGE);
+      return null;
+    }
+    if (fromUrl) {
+      sessionStorage.setItem(TEST_KEY_STORAGE, fromUrl);
+      return fromUrl;
+    }
+    return sessionStorage.getItem(TEST_KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+// useSyncExternalStore is how React reads browser-only state without a hydration
+// mismatch: the server (and the first render) get `null`, the browser then gets the
+// real value. Nothing here changes while the page is open, so there is nothing to subscribe to.
+const noSubscription = () => () => {};
+
 export default function AuditForm() {
   const router = useRouter();
+  const testKey = useSyncExternalStore(noSubscription, loadTestKey, () => null);
   const [busy, setBusy] = useState(false);
   const [fieldError, setFieldError] = useState<{ field?: Field; message: string } | null>(null);
 
@@ -27,7 +58,7 @@ export default function AuditForm() {
     try {
       const res = await fetch("/api/audit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(testKey ? { "x-test-key": testKey } : {}) },
         body: JSON.stringify({
           website: data.get("website"),
           name: data.get("name"),
@@ -54,6 +85,11 @@ export default function AuditForm() {
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4 rounded-2xl bg-zinc-100 p-5 dark:bg-zinc-900 sm:p-6">
+      {testKey && (
+        <p role="status" className="rounded-xl bg-amber-100 px-3 py-2 text-sm leading-7 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          وضع التجربة: لا يُحتسب هذا الفحص في الأرقام. لكن الرسائل تُرسل فعلاً وتُضاف جهة الاتصال إلى القائمة، فاستخدم بريداً تملكه.
+        </p>
+      )}
       <div>
         <label htmlFor="audit-website" className={LABEL}>
           عنوان موقعكم
