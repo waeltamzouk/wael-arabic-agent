@@ -1871,6 +1871,18 @@ And for Wael: start a fresh chat at the start of each week's task.
   included, 500), language, funnel steps, and the "what your assistant knows"
   list with a hand-written `updated` date. Bump that date when the agent's
   content changes. Public facts only — the repo is public.
+- INTERACTIVE PART (Oct 8): `app/client/page.tsx` is the SERVER half (checks the
+  key, reads 62 days of counters, passes one site's counts down).
+  `app/client/Dashboard.tsx` is the CLIENT half: period buttons (7 days / 30 /
+  this month) drive the funnel, chart and four small cards; tapping a funnel
+  step explains it, tapping a chart bar shows that day, content sections open
+  and close, and the numbers refresh every minute while the tab is in front
+  (`router.refresh()`, so the key never reaches client code) plus a Refresh
+  button. All words are in `app/client/text.ts`, both languages. The plan-month
+  card (limit, last month, projection) ignores the period buttons on purpose.
+  Still view-only: nothing here writes anything.
+- GOTCHA: the chart's axis labels must NOT be `dir="ltr"`. Under Arabic the bars
+  run oldest-first from the RIGHT, and forced-LTR labels put the dates backwards.
 - "Conversation" = the `started` counter, summed over the current month in
   Riyadh time. The bar turns orange at 80%. The page never says the agent will
   stop; over the limit it says the agent keeps working.
