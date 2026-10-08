@@ -2,14 +2,15 @@
 
 // The report page: waits for the audit (polling /api/audit/<id>), then shows it.
 //
-// Imports TYPES from lib/audit/types and WORDS from lib/audit/copy-ar, and nothing
-// else from lib/audit: the crawler and scorer use Node modules (dns, http) that
-// must never be bundled into the browser.
+// Imports TYPES from lib/audit/types, WORDS from lib/audit/copy-ar and drawing pieces from
+// ./parts, and nothing else from lib/audit: the crawler and scorer use Node modules (dns,
+// http) that must never be bundled into the browser.
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CATEGORIES, FAILURES, FINDINGS, FORM, GRADES, OBSERVATIONS, parts, REPORT, UNVERIFIED } from "@/lib/audit/copy-ar";
 import type { AuditReport, Finding } from "@/lib/audit/types";
+import { AddressChip, Bar, band, points, ScoreRing, TONE } from "./parts";
 
 type Api = { status: "running" | "done" | "failed"; domain: string; report: AuditReport | null; failure: string | null };
 type View =
@@ -21,121 +22,23 @@ type View =
 const POLL_MS = 1500;
 const GIVE_UP_MS = 100_000; // the server marks a lost job as failed at 90 s; this is the backstop
 
-const GRADE_STYLE: Record<string, { text: string; bar: string }> = {
-  excellent: { text: "text-emerald-700 dark:text-emerald-400", bar: "bg-emerald-600 dark:bg-emerald-500" },
-  good: { text: "text-lime-700 dark:text-lime-400", bar: "bg-lime-600 dark:bg-lime-500" },
-  needs_work: { text: "text-amber-700 dark:text-amber-400", bar: "bg-amber-600 dark:bg-amber-500" },
-  weak: { text: "text-red-700 dark:text-red-400", bar: "bg-red-600 dark:bg-red-500" },
-};
+const CARD = "rounded-3xl bg-panel p-5 ring-1 ring-hair sm:p-7";
+const H2 = "text-2xl font-bold text-white sm:text-3xl";
+const PRIMARY =
+  "flex h-14 items-center justify-center rounded-full bg-accent px-8 text-base font-bold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
-// The same bands as lib/audit/score.ts gradeOf, kept here so this file does not
-// import the scorer (and its Node-only dependencies) into the browser.
-function band(percent: number): string {
-  return percent >= 85 ? "excellent" : percent >= 70 ? "good" : percent >= 50 ? "needs_work" : "weak";
-}
-
-const CARD = "rounded-2xl bg-white p-5 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800";
-
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, narrow = false }: { children: ReactNode; narrow?: boolean }) {
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-10 dark:bg-black sm:px-6 sm:py-14">
-      <main className="flex w-full max-w-2xl flex-col gap-8">{children}</main>
-    </div>
-  );
-}
-
-function Domain({ value }: { value: string }) {
-  return <bdi dir="ltr">{value}</bdi>;
-}
-
-// ---------------------------------------------------------------- waiting
-
-function Waiting({ domain }: { domain?: string }) {
-  return (
-    <Shell>
-      <header className="flex flex-col gap-2" aria-live="polite">
-        <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.progressTitle}</h1>
-        {domain && (
-          <p className="text-lg text-zinc-600 dark:text-zinc-400">
-            <Domain value={domain} />
-          </p>
-        )}
-      </header>
-      <ul className={`${CARD} flex flex-col gap-3`}>
-        {REPORT.progressSteps.map((step, i) => (
-          <li key={step} className="flex items-center gap-3 text-zinc-700 dark:text-zinc-300">
-            <span
-              aria-hidden="true"
-              className="size-2.5 shrink-0 rounded-full bg-accent motion-safe:animate-pulse"
-              style={{ animationDelay: `${i * 250}ms` }}
-            />
-            {step}
-          </li>
-        ))}
-      </ul>
-      <p className="text-sm leading-7 text-zinc-500 dark:text-zinc-400">{REPORT.progressNote}</p>
-    </Shell>
-  );
-}
-
-// ---------------------------------------------------------------- pieces of the report
-
-function Ring({ score, grade }: { score: number; grade: string }) {
-  const r = 52;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className={`relative size-36 shrink-0 ${GRADE_STYLE[grade].text}`} role="img" aria-label={`${REPORT.scoreLabel}: ${score} ${REPORT.outOf}`}>
-      <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden="true">
-        <circle cx="60" cy="60" r={r} fill="none" strokeWidth="10" className="stroke-zinc-200 dark:stroke-zinc-800" />
-        <circle
-          cx="60" cy="60" r={r} fill="none" strokeWidth="10" strokeLinecap="round" stroke="currentColor"
-          strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span dir="ltr" className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">{score}</span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{REPORT.outOf}</span>
-      </div>
-    </div>
-  );
-}
-
-function FindingCard({ finding, rank }: { finding: Finding; rank?: number }) {
-  const copy = FINDINGS[finding.id];
-  if (!copy) return null;
-  const evidence = copy.evidence?.(finding.params);
-  return (
-    <article className={CARD}>
-      <h3 className="flex items-start gap-3 text-lg font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
-        {rank && (
-          <span aria-hidden="true" className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-            {rank}
-          </span>
-        )}
-        <span><Rich text={copy.title} /></span>
-      </h3>
-      {evidence && (
-        <p className="mt-3 rounded-xl bg-zinc-100 px-3 py-2 text-sm leading-7 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-          <span className="font-medium">{REPORT.evidence}: </span>
-          <Rich text={evidence} />
-        </p>
-      )}
-      <p className="mt-3 text-base leading-8 text-zinc-700 dark:text-zinc-300">
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">{REPORT.why} </span>
-        <Rich text={copy.why} />
-      </p>
-      <p className="mt-2 text-base leading-8 text-zinc-700 dark:text-zinc-300">
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">{REPORT.fix} </span>
-        <Rich text={copy.fix} />
-      </p>
-    </article>
+    <main className="flex-1 px-4 pb-10 pt-10 sm:px-6 sm:pt-14">
+      <div className={`audit-rise mx-auto flex w-full flex-col gap-10 ${narrow ? "max-w-2xl" : "max-w-4xl"}`}>{children}</div>
+    </main>
   );
 }
 
 /**
- * Text with `code` spans. Each code span is an inline-block with dir="ltr", which
- * isolates it from the Arabic around it. Without that the bidi algorithm reorders
- * a snippet like <meta name="viewport"> and splits it around the Arabic words.
+ * Text with `code` spans. Each code span is an inline-block with dir="ltr", which isolates it from
+ * the Arabic around it. Without that the bidi algorithm reorders a snippet like
+ * <meta name="viewport"> and splits it around the Arabic words.
  */
 function Rich({ text }: { text: string }) {
   return (
@@ -145,7 +48,7 @@ function Rich({ text }: { text: string }) {
           <code
             key={i}
             dir="ltr"
-            className="mx-0.5 inline-block max-w-full break-all rounded-md bg-zinc-100 px-1.5 py-0.5 align-baseline font-mono text-[0.85em] leading-6 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
+            className="mx-0.5 inline-block max-w-full break-words rounded-md bg-white/10 px-1.5 py-0.5 align-baseline font-mono text-[0.85em] leading-6 text-soft"
           >
             {p.text}
           </code>
@@ -157,9 +60,118 @@ function Rich({ text }: { text: string }) {
   );
 }
 
+// ---------------------------------------------------------------- waiting
+
+function Elapsed() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return (
+    <span aria-hidden="true" className="flex items-center gap-2 text-sm text-faint">
+      {REPORT.elapsed}
+      <span dir="ltr" className="font-mono tabular-nums text-mute">
+        {mm}:{ss}
+      </span>
+    </span>
+  );
+}
+
+function Waiting({ domain }: { domain?: string }) {
+  return (
+    <Shell narrow>
+      <header className="flex flex-col gap-5" aria-live="polite">
+        <p className="text-sm text-mute">{REPORT.reportOf}</p>
+        <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">{REPORT.progressTitle}</h1>
+        {/* The address bar again, now with a light moving along it while the audit runs. */}
+        <div className="flex flex-col gap-3">
+          {domain ? <AddressChip domain={domain} /> : <div className="h-10 w-56 rounded-full bg-raised" />}
+          <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+            <div className="audit-sweep absolute inset-y-0 start-0 w-2/5 rounded-full bg-accent" />
+          </div>
+        </div>
+      </header>
+
+      <ul className={`${CARD} flex flex-col gap-4`}>
+        {REPORT.progressSteps.map((step, i) => (
+          <li key={step} className="flex items-center gap-3.5 text-[17px] text-soft">
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full bg-accent motion-safe:animate-pulse"
+              style={{ animationDelay: `${i * 250}ms` }}
+            />
+            {step}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-col gap-3">
+        <p className="text-[15px] leading-8 text-mute">{REPORT.progressNote}</p>
+        <Elapsed />
+      </div>
+    </Shell>
+  );
+}
+
+// ---------------------------------------------------------------- pieces of the report
+
+function FindingCard({ finding, rank }: { finding: Finding; rank?: number }) {
+  const copy = FINDINGS[finding.id];
+  if (!copy) return null;
+  const evidence = copy.evidence?.(finding.params);
+  // How much it cost is the one number here that is pure data: the points this finding took off.
+  const cost = finding.lost >= 8 ? TONE.weak.chip : finding.lost >= 4 ? TONE.needs_work.chip : "bg-white/10 text-mute";
+  return (
+    <article className={CARD}>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <h3 className="flex min-w-0 items-start gap-3.5 text-xl font-bold leading-snug text-white sm:flex-1 sm:text-2xl">
+          {rank && (
+            <span aria-hidden="true" className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-base text-black">
+              {rank}
+            </span>
+          )}
+          <span className="min-w-0">
+            <Rich text={copy.title} />
+          </span>
+        </h3>
+        {finding.lost > 0 && (
+          <span className={`w-fit shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium ${cost}`}>
+            {REPORT.costs(points(finding.lost))}
+          </span>
+        )}
+      </header>
+
+      {evidence && (
+        <p className="mt-5 rounded-2xl bg-raised px-4 py-3 text-[15px] leading-8 text-mute">
+          <span className="font-medium text-soft">{REPORT.evidence}: </span>
+          <Rich text={evidence} />
+        </p>
+      )}
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2 md:gap-8">
+        <div>
+          <h4 className="text-sm font-medium text-faint">{REPORT.why}</h4>
+          <p className="mt-2 text-base leading-8 text-mute">
+            <Rich text={copy.why} />
+          </p>
+        </div>
+        <div className="border-accent md:border-s-2 md:ps-6">
+          <h4 className="text-sm font-medium text-accent-text">{REPORT.fix}</h4>
+          <p className="mt-2 text-base leading-8 text-white">
+            <Rich text={copy.fix} />
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function Mark({ ok }: { ok: boolean }) {
   return (
-    <span className={ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+    <span className={ok ? "text-emerald-400" : "text-red-400"}>
       <span aria-hidden="true">{ok ? "✓" : "✗"}</span>
       <span className="sr-only">{ok ? REPORT.yes : REPORT.no}</span>
     </span>
@@ -169,7 +181,7 @@ function Mark({ ok }: { ok: boolean }) {
 function pathOf(url: string): string {
   try {
     const u = new URL(url);
-    return (u.pathname + u.search) || "/";
+    return u.pathname + u.search || "/";
   } catch {
     return url;
   }
@@ -186,70 +198,77 @@ function Report({ domain, report, whatsapp }: { domain: string; report: AuditRep
 
   return (
     <Shell>
-      <header className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{REPORT.pageTitle("").trim()}</p>
-        <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
-          <Domain value={domain} />
-        </h1>
+      <header className="flex flex-col gap-4">
+        <p className="text-sm text-mute">{REPORT.reportOf}</p>
+        <AddressChip domain={domain} />
       </header>
 
-      {/* ---- score */}
+      {/* ---- the score, and the five parts it is made of */}
       {report.score !== null && grade ? (
-        <section className={`${CARD} flex flex-col items-center gap-5 sm:flex-row`}>
-          <Ring score={report.score} grade={grade} />
-          <div className="flex flex-col gap-1 text-center sm:text-start">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">{REPORT.scoreLabel}</p>
-            <p className={`text-2xl font-bold ${GRADE_STYLE[grade].text}`}>{GRADES[grade].label}</p>
-            <p className="text-base leading-8 text-zinc-700 dark:text-zinc-300">{GRADES[grade].line}</p>
+        <section className="grid gap-8 rounded-[2rem] bg-panel p-6 ring-1 ring-hair sm:p-9 md:grid-cols-[auto_1fr] md:items-center md:gap-14">
+          <div className="flex flex-col items-center gap-5 text-center md:items-start md:text-start">
+            <ScoreRing score={report.score} grade={grade} size="size-44 sm:size-52" />
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-mute">{REPORT.scoreLabel}</p>
+              <p className={`text-3xl font-bold ${TONE[grade].text}`}>{GRADES[grade].label}</p>
+              <p className="max-w-[18rem] text-[15px] leading-8 text-mute">{GRADES[grade].line}</p>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-5 text-sm font-medium text-faint">{REPORT.categories}</h2>
+            <ul className="flex flex-col gap-5">
+              {report.categories.map((c) => {
+                const percent = c.score === null ? 0 : Math.round((c.score / c.max) * 100);
+                return (
+                  <li key={c.id} className="flex flex-col gap-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="font-medium text-white">{CATEGORIES[c.id].name}</span>
+                      <span dir="ltr" className="text-sm text-mute">
+                        {c.score === null ? "—" : `${c.score}/${c.max}`}
+                      </span>
+                    </div>
+                    <Bar percent={percent} grade={band(percent)} />
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </section>
       ) : (
         <section className={CARD}>
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.noScoreTitle}</h2>
-          <p className="mt-2 text-base leading-8 text-zinc-700 dark:text-zinc-300">{UNVERIFIED.js_shell}</p>
+          <h2 className="text-2xl font-bold text-white">{REPORT.noScoreTitle}</h2>
+          <p className="mt-3 text-base leading-8 text-mute">{UNVERIFIED.js_shell}</p>
         </section>
       )}
 
-      {/* ---- categories */}
+      {/* ---- the biggest problems, ranked by what they cost */}
       {report.score !== null && (
-        <section aria-labelledby="cats" className="flex flex-col gap-3">
-          <h2 id="cats" className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.categories}</h2>
-          <ul className={`${CARD} flex flex-col gap-4`}>
-            {report.categories.map((c) => {
-              const pct = c.score === null ? 0 : Math.round((c.score / c.max) * 100);
-              return (
-                <li key={c.id}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-50">{CATEGORIES[c.id].name}</span>
-                    <span dir="ltr" className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {c.score === null ? "—" : `${c.score}/${c.max}`}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800" aria-hidden="true">
-                    <div className={`h-full rounded-full ${GRADE_STYLE[band(pct)].bar}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {/* ---- top problems */}
-      {report.score !== null && (
-        <section aria-labelledby="top" className="flex flex-col gap-3">
-          <h2 id="top" className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.top3}</h2>
-          {top.length ? top.map((f, i) => <FindingCard key={f.id} finding={f} rank={i + 1} />) : <p className={CARD}>{REPORT.nothingToFix}</p>}
+        <section aria-labelledby="top" className="flex flex-col gap-5">
+          <div>
+            <h2 id="top" className={H2}>
+              {REPORT.top3}
+            </h2>
+            <p className="mt-2 text-[15px] text-mute">{REPORT.top3Lead}</p>
+          </div>
+          {top.length ? top.map((f, i) => <FindingCard key={f.id} finding={f} rank={i + 1} />) : <p className={`${CARD} text-mute`}>{REPORT.nothingToFix}</p>}
         </section>
       )}
 
       {rest.length > 0 && (
-        <details className={CARD}>
-          <summary className="cursor-pointer text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            {REPORT.allFindings} ({rest.length})
+        <details className={`${CARD} group`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold text-white [&::-webkit-details-marker]:hidden">
+            <span>
+              {REPORT.allFindings} <span className="text-mute">({rest.length})</span>
+            </span>
+            <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4 shrink-0 fill-none stroke-current transition-transform group-open:rotate-180" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m3.5 6 4.5 4.5L12.5 6" />
+            </svg>
           </summary>
-          <div className="mt-4 flex flex-col gap-3">
-            {rest.map((f) => <FindingCard key={f.id} finding={f} />)}
+          <div className="mt-6 flex flex-col gap-4">
+            {rest.map((f) => (
+              <FindingCard key={f.id} finding={f} />
+            ))}
           </div>
         </details>
       )}
@@ -257,43 +276,46 @@ function Report({ domain, report, whatsapp }: { domain: string; report: AuditRep
       {report.observations.map((o) => {
         const copy = OBSERVATIONS[o.id];
         return copy ? (
-          <aside key={o.id} className={CARD}>
-            <p className="font-medium text-zinc-900 dark:text-zinc-50">{copy.title(o.params)}</p>
-            <p className="mt-1 text-base leading-8 text-zinc-700 dark:text-zinc-300">{copy.text}</p>
+          <aside key={o.id} className="rounded-3xl border border-dashed border-hair-strong p-5 sm:p-7">
+            <p className="text-lg font-bold text-white">{copy.title(o.params)}</p>
+            <p className="mt-2 text-base leading-8 text-mute">{copy.text}</p>
           </aside>
         ) : null;
       })}
 
-      {/* ---- pages */}
-      <section aria-labelledby="pages" className="flex flex-col gap-3">
-        <h2 id="pages" className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.pages}</h2>
-        {/* `relative` is NOT decoration. The ✓/✗ marks carry an sr-only label, which is
-            position:absolute. Without a positioned ancestor it is placed against the PAGE,
-            not this scroll box, so it escapes the clipping and widened the whole page by 62px
-            at 375px. Found by measuring scrollWidth, not by looking. */}
-        <div className="relative overflow-x-auto rounded-2xl bg-white ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
-          <table className="w-full min-w-[34rem] text-sm">
+      {/* ---- the pages that were read */}
+      <section aria-labelledby="pages" className="flex flex-col gap-4">
+        <h2 id="pages" className={H2}>
+          {REPORT.pages}
+        </h2>
+        {/* `relative` is NOT decoration. The check marks carry an sr-only label, which is
+            position:absolute. Without a positioned ancestor it is placed against the PAGE, not
+            this scroll box, so it escapes the clipping and widens the whole page on a phone. */}
+        <div className="relative overflow-x-auto rounded-3xl bg-panel ring-1 ring-hair">
+          <table className="w-full min-w-[36rem] text-sm">
             <thead>
-              <tr className="text-start text-zinc-500 dark:text-zinc-400">
-                <th scope="col" className="px-4 py-3 text-start font-medium">{REPORT.pageCols.page}</th>
-                <th scope="col" className="px-2 py-3 text-start font-medium">{REPORT.pageCols.arabic}</th>
-                <th scope="col" className="px-2 py-3 text-start font-medium">{REPORT.pageCols.lang}</th>
-                <th scope="col" className="px-2 py-3 text-start font-medium">{REPORT.pageCols.dir}</th>
-                <th scope="col" className="px-2 py-3 text-start font-medium">{REPORT.pageCols.viewport}</th>
-                <th scope="col" className="px-2 py-3 text-start font-medium">{REPORT.pageCols.contact}</th>
-                <th scope="col" className="px-4 py-3 text-start font-medium">{REPORT.pageCols.size}</th>
+              <tr className="text-faint">
+                <th scope="col" className="px-5 py-4 text-start font-medium">{REPORT.pageCols.page}</th>
+                <th scope="col" className="px-2 py-4 text-start font-medium">{REPORT.pageCols.arabic}</th>
+                <th scope="col" className="px-2 py-4 text-start font-medium">{REPORT.pageCols.lang}</th>
+                <th scope="col" className="px-2 py-4 text-start font-medium">{REPORT.pageCols.dir}</th>
+                <th scope="col" className="px-2 py-4 text-start font-medium">{REPORT.pageCols.viewport}</th>
+                <th scope="col" className="px-2 py-4 text-start font-medium">{REPORT.pageCols.contact}</th>
+                <th scope="col" className="px-5 py-4 text-start font-medium">{REPORT.pageCols.size}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="text-soft">
               {report.pages.map((p) => (
-                <tr key={p.url} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-4 py-3"><bdi dir="ltr" className="break-all">{pathOf(p.url)}</bdi></td>
-                  <td className="px-2 py-3"><bdi dir="ltr">{p.arabicShare}%</bdi></td>
-                  <td className="px-2 py-3"><Mark ok={p.langOk} /></td>
-                  <td className="px-2 py-3"><Mark ok={p.dirOk} /></td>
-                  <td className="px-2 py-3"><Mark ok={p.viewportOk} /></td>
-                  <td className="px-2 py-3"><Mark ok={p.hasDirectContact} /></td>
-                  <td className="px-4 py-3"><bdi dir="ltr">{p.kb} KB</bdi></td>
+                <tr key={p.url} className="border-t border-hair">
+                  <td className="px-5 py-3.5">
+                    <bdi dir="ltr" className="break-all font-mono text-[13px]">{pathOf(p.url)}</bdi>
+                  </td>
+                  <td className="px-2 py-3.5"><bdi dir="ltr">{p.arabicShare}%</bdi></td>
+                  <td className="px-2 py-3.5"><Mark ok={p.langOk} /></td>
+                  <td className="px-2 py-3.5"><Mark ok={p.dirOk} /></td>
+                  <td className="px-2 py-3.5"><Mark ok={p.viewportOk} /></td>
+                  <td className="px-2 py-3.5"><Mark ok={p.hasDirectContact} /></td>
+                  <td className="px-5 py-3.5"><bdi dir="ltr">{p.kb} KB</bdi></td>
                 </tr>
               ))}
             </tbody>
@@ -302,37 +324,44 @@ function Report({ domain, report, whatsapp }: { domain: string; report: AuditRep
       </section>
 
       {/* ---- what we could not check, and the method */}
-      {report.unverified.length > 0 && (
+      {report.unverified.filter((id) => id !== "js_shell").length > 0 && (
         <section className={CARD}>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.notChecked}</h2>
-          <ul className="mt-2 list-disc ps-5 text-base leading-8 text-zinc-700 dark:text-zinc-300">
-            {report.unverified.filter((id) => id !== "js_shell").map((id) => <li key={id}>{UNVERIFIED[id] ?? id}</li>)}
+          <h2 className="text-lg font-bold text-white">{REPORT.notChecked}</h2>
+          <ul className="mt-3 list-disc ps-5 text-base leading-8 text-mute">
+            {report.unverified.filter((id) => id !== "js_shell").map((id) => (
+              <li key={id}>{UNVERIFIED[id] ?? id}</li>
+            ))}
           </ul>
         </section>
       )}
 
-      <details className={CARD}>
-        <summary className="cursor-pointer font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.methodTitle}</summary>
-        <p className="mt-3 text-sm leading-7 text-zinc-700 dark:text-zinc-300">{REPORT.methodChecked}</p>
-        <p className="mt-2 text-sm leading-7 text-zinc-700 dark:text-zinc-300">{REPORT.methodLimits}</p>
+      <details className={`${CARD} group`}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold text-white [&::-webkit-details-marker]:hidden">
+          {REPORT.methodTitle}
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4 shrink-0 fill-none stroke-current transition-transform group-open:rotate-180" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m3.5 6 4.5 4.5L12.5 6" />
+          </svg>
+        </summary>
+        <p className="mt-4 text-[15px] leading-8 text-mute">{REPORT.methodChecked}</p>
+        <p className="mt-3 text-[15px] leading-8 text-mute">{REPORT.methodLimits}</p>
       </details>
 
-      {/* ---- next step */}
-      <section className={`${CARD} flex flex-col gap-3`}>
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{REPORT.ctaTitle}</h2>
-        <p className="text-base leading-8 text-zinc-700 dark:text-zinc-300">{REPORT.ctaText}</p>
+      {/* ---- the next step. White on black, the way waelwebdesign.com ends its sections. */}
+      <section className="flex flex-col gap-5 rounded-[2rem] bg-white p-7 text-black sm:p-10">
+        <h2 className="text-3xl font-bold leading-snug sm:text-4xl">{REPORT.ctaTitle}</h2>
+        <p className="max-w-xl text-lg leading-9 text-zinc-700">{REPORT.ctaText}</p>
         <a
           href={whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}` : "https://waelwebdesign.com/contact"}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-12 items-center justify-center rounded-xl bg-accent px-5 text-base font-medium text-white transition-opacity hover:opacity-90"
+          className={`${PRIMARY} w-full sm:w-fit`}
         >
           {REPORT.ctaButton}
         </a>
       </section>
 
       <p className="text-center">
-        <Link href="/audit" className="text-sm text-accent-text underline underline-offset-2">
+        <Link href="/audit" className="text-[15px] text-mute underline underline-offset-4 transition-colors hover:text-white">
           {REPORT.backToForm}
         </Link>
       </p>
@@ -380,17 +409,13 @@ export default function ReportView({ id, whatsapp }: { id: string; whatsapp: str
   if (view.kind === "done") return <Report domain={view.domain} report={view.report} whatsapp={whatsapp} />;
 
   return (
-    <Shell>
-      <section className={`${CARD} flex flex-col gap-4`}>
-        {view.kind === "failed" && view.domain && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            <Domain value={view.domain} />
-          </p>
-        )}
-        <h1 className="text-2xl font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
+    <Shell narrow>
+      <section className={`${CARD} flex flex-col gap-5`}>
+        {view.kind === "failed" && view.domain && <AddressChip domain={view.domain} />}
+        <h1 className="text-2xl font-bold leading-snug text-white sm:text-3xl">
           {view.kind === "missing" ? FORM.notFound : (FAILURES[view.failure] ?? FAILURES.error)}
         </h1>
-        <Link href="/audit" className="flex h-12 items-center justify-center rounded-xl bg-accent px-5 text-base font-medium text-white transition-opacity hover:opacity-90">
+        <Link href="/audit" className={PRIMARY}>
           {view.kind === "failed" ? REPORT.retry : REPORT.backToForm}
         </Link>
       </section>

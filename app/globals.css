@@ -61,3 +61,75 @@ body {
   color: var(--foreground);
   font-family: var(--font-arabic), Arial, Helvetica, sans-serif;
 }
+
+/* ------------------------------------------------------------------------- */
+/* The /audit pages (W10-T1). Dressed like waelwebdesign.com on purpose: pure   */
+/* black, white type, pill shapes, and the orange only on the one thing to      */
+/* press. These pages are ALWAYS dark, as the main site is, whatever the        */
+/* visitor's system theme says. Everything is scoped under `.audit-root`, so no */
+/* other page changes.                                                          */
+/* ------------------------------------------------------------------------- */
+
+/* The brand font, hosted by Wael's own Framer project. It allows cross-site
+   loading and caches for a year. If it ever disappears the stack falls back to
+   IBM Plex Sans Arabic (already loaded by the root layout), so nothing breaks. */
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://framerusercontent.com/assets/zvtIX3lfoEatRXmuaEhn4EhOESo.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://framerusercontent.com/assets/WrV7fIGa1u2iMigz3mcvfnsyM.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://framerusercontent.com/assets/0SzM07uZ5RKGQlPCh6YyxMpGsaM.woff2") format("woff2");
+}
+
+@theme inline {
+  --color-ink: #000000;
+  --color-panel: #0c0c0d;
+  --color-raised: #161618;
+  --color-hair: rgb(255 255 255 / 0.1);
+  --color-hair-strong: rgb(255 255 255 / 0.2);
+  --color-soft: #ededee;
+  --color-mute: #a1a1aa;
+  --color-faint: #7c7c86;
+}
+
+.audit-root {
+  color-scheme: dark;
+  background: #000;
+  color: var(--color-soft);
+  font-family: "Thmanyah Sans", var(--font-arabic), system-ui, sans-serif;
+}
+
+/* Motion is kept to two moments: the page arriving, and the score ring drawing.
+   Both are off for visitors who ask their system for reduced motion. */
+@keyframes audit-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes audit-ring {
+  from { stroke-dashoffset: var(--ring-full); }
+  to { stroke-dashoffset: var(--ring-to); }
+}
+@keyframes audit-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(260%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .audit-rise { animation: audit-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .audit-ring { animation: audit-ring 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+  .audit-sweep { animation: audit-sweep 1.6s ease-in-out infinite; }
+}
+

@@ -58,7 +58,7 @@ export function buildReportEmail(input: { name: string; domain: string; report: 
 
   const scoreBlock =
     score === null
-      ? `<p style="margin:0;font-size:16px;line-height:1.9;color:#3f3f46;">لم نتمكن من إعطاء درجة عادلة لهذا الموقع. افتحوا التقرير لمعرفة السبب.</p>`
+      ? `<p style="margin:0;font-size:16px;line-height:1.9;color:#3f3f46;">${esc(EMAIL.noScore)}</p>`
       : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
            <td style="font-family:${FONT};font-size:56px;line-height:1;font-weight:700;color:#18181b;padding-left:12px;">${score}</td>
            <td style="font-family:${FONT};font-size:16px;line-height:1.6;color:#71717a;">من 100<br><strong style="color:#18181b;font-size:18px;">${esc(grade?.label ?? "")}</strong></td>
@@ -94,7 +94,7 @@ export function buildReportEmail(input: { name: string; domain: string; report: 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
     <tr><td style="padding:28px 24px 0 24px;font-family:${FONT};"><p style="margin:0;font-size:14px;color:#71717a;">وائل ويب ديزاين</p></td></tr>
     <tr><td style="padding:14px 24px 0 24px;font-family:${FONT};">
-      <h1 style="margin:0;font-size:24px;line-height:1.5;color:#18181b;font-weight:700;">تقرير موقعكم <bdi dir="ltr">${esc(domain)}</bdi></h1>
+      <h1 style="margin:0;font-size:24px;line-height:1.5;color:#18181b;font-weight:700;">${esc(EMAIL.heading)} <bdi dir="ltr">${esc(domain)}</bdi></h1>
     </td></tr>
     <tr><td style="padding:14px 24px 0 24px;font-family:${FONT};">
       <p style="margin:0;font-size:16px;line-height:1.9;color:#3f3f46;">${esc(EMAIL.greeting(first))}<br>${esc(EMAIL.intro(domain))}</p>
@@ -117,7 +117,7 @@ export function buildReportEmail(input: { name: string; domain: string; report: 
     EMAIL.greeting(first),
     EMAIL.intro(domain),
     "",
-    score === null ? "لم نتمكن من إعطاء درجة عادلة لهذا الموقع." : `الدرجة: ${score} من 100 (${grade?.label ?? ""})`,
+    score === null ? EMAIL.noScore : `الدرجة: ${score} من 100 (${grade?.label ?? ""})`,
     ...(lines.length ? ["", EMAIL.top, ...lines.map((l, i) => plain(`${i + 1}. ${l.title}${l.evidence ? ` — ${l.evidence}` : ""}`))] : []),
     "",
     `${EMAIL.button}: ${link}`,

@@ -2085,10 +2085,37 @@ And for Wael: start a fresh chat at the start of each week's task.
 - DEV ONLY, ignored when `NODE_ENV=production`: `AUDIT_ALLOW_PRIVATE=1` lets the engine reach
   localhost (the fixtures), `AUDIT_DRY_RUN=1` logs emails and list-adds instead of sending.
   `Desktop/Agentic/.claude/launch.json` has `audit-dev` (both on, port 3100), `audit-dev-strict`
-  (dry run only: use it to attack the real route) and `audit-prod` (production build, port 3200).
-- TEST SWITCH, the same one the chat has: open `/audit?test=<STATS_KEY>`. An amber banner shows,
-  the key is kept in `sessionStorage` (`wael-audit:test`) for that tab and sent as the
-  `x-test-key` header, and `?test=off` leaves test mode. A test is not counted in the stats and
+  (dry run only: use it to attack the real route), `audit-dev-testkey` (both on, and a harmless fake
+  `STATS_KEY=devtestkey123`, so the test switch can be tried with `?test=devtestkey123` without
+  ever typing the real key) and `audit-prod` (production build, port 3200).
+- DESIGN (redesigned Oct 8, to look like waelwebdesign.com): the audit pages are ALWAYS dark, pure
+  black with white type, pill shapes and the orange only on the one thing to press, because the main
+  site is. Tokens, the `@font-face` rules and the two animations live in `app/globals.css` under a
+  `.audit-root` block (additive; nothing else changes). `app/audit/layout.tsx` wraps all three pages
+  (pill header, footer); `app/audit/parts.tsx` holds the shared drawing (`AddressChip`, `ScoreRing`,
+  `Bar`, `points()`). THE SIGNATURE is the address bar: the input is drawn as a browser's address bar,
+  and it comes back as the domain chip on the progress screen and as the heading of the report,
+  because the address is the thing being measured. The form has two steps (the address first, then
+  name, email and consent in one `<form>`; the closed step is `inert`). The landing page shows a
+  SAMPLE report (`SampleReport.tsx`, labelled as an example, `aria-hidden` so screen readers get the
+  caption and not made-up numbers). Each finding shows the exact points it cost (`يخصم 8 نقاط`),
+  which is real data. Motion is only the page arriving and the ring drawing, both off for reduced motion.
+- FONT: headlines use thmanyah sans, the font waelwebdesign.com uses, loaded straight from Wael's
+  own Framer CDN (`framerusercontent.com`, which allows cross-site loading and caches for a year).
+  If it ever goes away the stack falls back to IBM Plex Sans Arabic, so nothing breaks. OPEN QUESTION
+  for Wael: confirm the font's licence covers use on the vercel.app / audit domain before launch (it
+  is NOT copied into this public repo; only its Framer URL is). Replace the three `@font-face` URLs
+  to change it.
+- VOICE: every Arabic string, including all landing and form wording, is in `lib/audit/copy-ar.ts`
+  (`LANDING`, `FORM_UI`, `REPORT`, ...) and uses the singular direct voice of waelwebdesign.com
+  ("افحص"، "أضف"), not the plural-formal "افحصوا / موقعكم" of the first draft.
+- TEST SWITCH, the same one the chat has: open `/audit?test=<STATS_KEY>` (the REAL key: the angle
+  brackets are a placeholder, not part of it). The page asks the server (`GET /api/audit/test-key`,
+  which answers only yes or no) whether the key is real, and only then shows a banner: AMBER for a
+  real key, RED ("wrong key, this audit WILL be counted") for anything else. Before Oct 8 the amber
+  banner showed for ANY value, so a pasted `<your STATS_KEY>` promised "not counted" while the audit
+  was counted. The header is sent only when the key was confirmed. The key is kept in `sessionStorage`
+  (`wael-audit:test`) for that tab, and `?test=off` leaves test mode. A test is not counted in the stats and
   its emails start with `[TEST]`. IT IS NOT A DRY RUN: the report email, the notice to Wael and the
   Resend list-add all still happen for real, so test with an address you own and delete the
   contact afterwards (the banner says so). The key sits in the address bar, so it is in browser
@@ -2140,6 +2167,15 @@ And for Wael: start a fresh chat at the start of each week's task.
      person on a trap field alone. Losing a real lead costs far more than letting a bot through, and
      the limits already cap what a bot can do. If "Caught by the hidden field" ever climbs while real
      audits stay at zero, look here first.
+  10. A grid with no explicit column size grows to its widest child's min-content. The landing
+     page's hero was 361 px wide in a 343 px slot and the whole page was 2 px wider than a phone.
+     Pin it: `grid-cols-1` (= `minmax(0, 1fr)`). Found by measuring `scrollWidth`, not by looking.
+  11. When the screenshot tool shows the page tiny in one corner it is the stale viewport emulation
+     (also noted in "Testing the bubble"), not the page: reset with `resize_window` and screenshot
+     again, or measure with `javascript_tool`. A 1280 px layout cannot be photographed in this pane;
+     measure its columns instead.
+  12. A long code snippet inside Arabic text must break at SPACES (`break-words`), not anywhere
+     (`break-all`), or `width` becomes `widt` / `h`.
 - HONEST LIMITATIONS (also printed on the report page): raw HTML only, so nothing JavaScript
   draws later, no mirrored icons, no real load time, no judgement of Arabic wording. A
   CSS-in-JS site (styles injected at runtime) shows no `@media` rules; it is treated as
