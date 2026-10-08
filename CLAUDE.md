@@ -118,6 +118,8 @@ Explain as you go. Ask before big changes.
       end-to-end run. See "Audit page (W10-T1)". Tick when: an audit submitted on
       production with `?test=` appears in the segment with `website` and
       `audit_score` set, the report email is in the inbox (not spam), and the link works.
+      ALSO: `/audit` is `noindex` until Wael has reviewed the Arabic. At launch, delete
+      the `robots` line in `app/audit/page.tsx` (it is marked with a comment).
 - [ ] Phase 7: HubSpot (as a client-facing demo, not for Wael's own use)
 
 ## Repo notes
@@ -2040,6 +2042,10 @@ And for Wael: start a fresh chat at the start of each week's task.
   written once in `lib/audit/copy-ar.ts`. Same site, same score; no per-audit API bill; no
   model can invent a claim about a stranger's website. The copy is a FIRST DRAFT for Wael
   to read and correct: his Arabic is the product.
+- NOINDEX UNTIL REVIEWED (Oct 8): `/audit` carries `robots: noindex, nofollow` while Wael reads and
+  corrects the Arabic in `lib/audit/copy-ar.ts`, because the page is live and the wording is a first
+  draft. REMOVE that one line in `app/audit/page.tsx` when he approves (the report pages under
+  `/audit/r/` stay noindex for good). The page is also linked from nowhere yet.
 - FILES: `app/audit/` (page, `AuditForm`, `ReportView`, `r/[id]/page`), `app/api/audit/route.ts`
   (POST) and `[id]/route.ts` (GET), `lib/audit/` = `safe-fetch` (SSRF guard), `analyze`,
   `crawl`, `score`, `copy-ar`, `kv`, `store`, `limits`, `lead`, `email`, `run`, `types`.

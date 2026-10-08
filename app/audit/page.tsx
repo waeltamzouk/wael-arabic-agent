@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import AuditForm from "./AuditForm";
 import { CATEGORIES, REPORT } from "@/lib/audit/copy-ar";
 
-// This page IS meant to be found (unlike /embed and the report pages), so it has
-// no `robots` rule: the report pages under /audit/r/ are the private ones.
+// NOT INDEXED YET, ON PURPOSE (Oct 8). The Arabic in lib/audit/copy-ar.ts is a first
+// draft that Wael has not reviewed, and this page is live. REMOVE the `robots` line
+// below when he has approved the wording: this page is meant to be found in the end
+// (the report pages under /audit/r/ stay private for good).
 export const metadata: Metadata = {
+  robots: { index: false, follow: false },
   title: "افحص موقعك العربي | وائل",
   description: "أدخل عنوان موقعك واحصل على درجة من 100 مع أهم ثلاث مشاكل وطريقة إصلاحها: اللغة العربية، الجوال، السرعة، والتواصل.",
 };
