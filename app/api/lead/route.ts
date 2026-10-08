@@ -12,6 +12,7 @@ import { sendLead, type Lead } from "@/lib/send-lead";
 import { whatsappLink } from "@/lib/whatsapp";
 import { isKnownCountryCode } from "@/lib/countries";
 import { record } from "@/lib/stats";
+import { isTestRequest, runInTestMode } from "@/lib/test-mode";
 import { siteFromParam } from "@/lib/site";
 import {
   clientIp,
@@ -88,7 +89,7 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   if (!isAllowedOrigin(req)) {
     return refuse(req, {
       status: 403,
@@ -152,6 +153,9 @@ export async function POST(req: NextRequest) {
     phone,
     ...(email ? { email } : {}),
     type: notes?.type === "template" ? "template" : "project",
+    // A test still sends the email, so delivery can be checked, but the subject
+    // says so and Wael does not mistake it for a customer.
+    ...(isTestRequest(req) ? { test: true } : {}),
   };
 
   for (const field of NOTE_FIELDS) {
@@ -177,4 +181,10 @@ export async function POST(req: NextRequest) {
   );
 
   return json(req, { ok: true });
+}
+
+// Runs in test mode when the request carries Wael's test key, so nothing it does
+// is counted. See lib/test-mode.ts.
+export function POST(req: NextRequest) {
+  return runInTestMode(req, () => handlePost(req));
 }

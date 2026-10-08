@@ -12,6 +12,8 @@ export type Lead = {
   // leads read exactly as they always did; a WhatsApp one says so in the
   // subject and on its own line.
   channel?: "WhatsApp";
+  // Sent from a test conversation (lib/test-mode.ts). Only changes the subject.
+  test?: boolean;
   // "project" = wants a new site built. "template" = wants a template customized.
   type?: "project" | "template";
   business?: string;
@@ -113,7 +115,7 @@ export async function sendLead(lead: Lead, site: Site = DEFAULT_SITE) {
       replyTo: to,
       // Tagged only when a site's lead landed in the default inbox, so Wael
       // sees at a glance that it belongs to someone else and must be forwarded.
-      subject: `${fallback ? `[${site}] ` : ""}New ${lead.channel ? `${lead.channel} ` : ""}${lead.type ?? "project"} lead: ${lead.name} — ${
+      subject: `${lead.test ? "[TEST] " : ""}${fallback ? `[${site}] ` : ""}New ${lead.channel ? `${lead.channel} ` : ""}${lead.type ?? "project"} lead: ${lead.name} — ${
         lead.project?.trim() || "website"
       }`,
       text: body,

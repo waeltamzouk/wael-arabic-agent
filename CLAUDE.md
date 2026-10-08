@@ -1992,8 +1992,23 @@ And for Wael: start a fresh chat at the start of each week's task.
   held, and never touches the Polar buyer counters or anything outside `chat:*`
   (the WhatsApp memory keys are safe). Tested Oct 8 against a stand-in Redis.
 - Look at /stats "By day" first to see which days were tests.
-- IDEA, not built: a test switch (a secret in the /embed link) that stops
-  counting, so the next round of testing does not pollute the numbers again.
+- THE TEST SWITCH (built Oct 8): open the chat as
+  `https://wael-arabic-agent.vercel.app/embed?test=<STATS_KEY>` (add
+  `&site=templates` for the English site). A yellow "Test mode" bar shows, and
+  NOTHING you do is counted. `?test=off` leaves test mode; so does closing the
+  tab. A lead sent from the form still emails, with `[TEST]` at the start of the
+  subject. It reuses STATS_KEY, so there is no new env var. Mechanism:
+  `lib/test-mode.ts` (AsyncLocalStorage) makes `record()` skip when the request
+  carries the right `x-test-key` header; /api/chat, /api/lead and /api/event run
+  inside it. Verified Oct 8: right key = 0 counters, wrong key and no key = counted
+  normally, widget banner and header confirmed in a browser, test lead emailed
+  and not counted.
+- WHAT THE SWITCH CANNOT COVER: WhatsApp (Meta's webhook cannot carry the
+  header — clear those with `reset-counters.mjs --site whatsapp`), and a test on
+  the Framer site itself (the `opened` ping comes from the Framer snippet).
+  Test on `/embed?test=…`, not on waelwebdesign.com.
+- GOTCHA: the key sits in the page address, so it is in browser history. It is
+  the same key as the stats page, which is already in a link.
 
 ## Conversation log (decided Oct 8, NOT built yet)
 - Wael wants a conversation log, and the CLIENT will see what visitors typed.

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clientIp, corsHeaders, isAllowedOrigin, rateLimit } from "@/lib/guard";
 import { siteFromParam, siteMetric } from "@/lib/site";
 import { record } from "@/lib/stats";
+import { runInTestMode } from "@/lib/test-mode";
 
 // Nothing else is countable from the browser. An allowlist means a stranger
 // cannot invent metric names and pollute the counters.
@@ -23,7 +24,7 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   if (!isAllowedOrigin(req)) {
     return new NextResponse(null, { status: 403, headers: corsHeaders(req) });
   }
@@ -47,4 +48,10 @@ export async function POST(req: NextRequest) {
   record(siteMetric(site, name));
 
   return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
+}
+
+// Runs in test mode when the request carries Wael's test key, so nothing it does
+// is counted. See lib/test-mode.ts.
+export function POST(req: NextRequest) {
+  return runInTestMode(req, () => handlePost(req));
 }

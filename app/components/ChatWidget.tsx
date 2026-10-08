@@ -40,6 +40,7 @@ const UI = {
     placeholder: "اكتب رسالتك…",
     inputLabel: "اكتب رسالتك",
     send: "إرسال",
+    testBanner: "وضع التجربة: هذه المحادثة لا تُحسب في الأرقام.",
     startersLabel: "أسئلة مقترحة",
     starters: [
       "كم تكلفة موقع لشركتي؟",
@@ -61,6 +62,7 @@ const UI = {
     placeholder: "Type your message…",
     inputLabel: "Type your message",
     send: "Send",
+    testBanner: "Test mode: this chat is not counted in the numbers.",
     startersLabel: "Suggested questions",
     starters: [
       "Which template fits my business?",
@@ -167,6 +169,29 @@ function loadFormSeen(site: Site): boolean {
   }
 }
 
+// Wael's test switch (lib/test-mode.ts). `?test=<key>` on the page address turns
+// it on for this tab; the key is kept in sessionStorage so it survives a
+// same-tab navigation, and it only ever travels as a request header.
+const TEST_KEY_STORAGE = "wael-chat:test";
+
+function loadTestKey(): string | null {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("test")?.trim();
+    // `?test=off` leaves test mode without closing the tab.
+    if (fromUrl === "off") {
+      sessionStorage.removeItem(TEST_KEY_STORAGE);
+      return null;
+    }
+    if (fromUrl) {
+      sessionStorage.setItem(TEST_KEY_STORAGE, fromUrl);
+      return fromUrl;
+    }
+    return sessionStorage.getItem(TEST_KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
 function loadLead(site: Site): LeadState | null {
   try {
     const raw = sessionStorage.getItem(leadKey(site));
@@ -207,6 +232,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
   const [error, setError] = useState<string | null>(null);
   const [lead, setLead] = useState<LeadState | null>(null);
   const [formSeen, setFormSeen] = useState(false);
+  const [testKey, setTestKey] = useState<string | null>(null);
   // False until sessionStorage has been read. The server renders an empty
   // list, so without this the starters would flash on every reload of a saved
   // conversation before the restore landed — the render-order twin of the
@@ -258,6 +284,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
     if (restoredLead) setLead(restoredLead);
     // Also true for any restored conversation that has a form state at all.
     setFormSeen(loadFormSeen(site) || restoredLead !== null);
+    setTestKey(loadTestKey());
     setRestored(true);
   }, [site]);
 
@@ -293,7 +320,10 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
     try {
       const res = await fetch(chatUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(testKey ? { "x-test-key": testKey } : {}),
+        },
         body: JSON.stringify({ messages: history, formShown: formSeen }),
       });
 
@@ -348,6 +378,8 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
 
   function handleStarter(text: string) {
     if (!send(text)) return;
+    // A test is never counted, and a beacon cannot carry the test header anyway.
+    if (testKey) return;
     // Counted as its own event, on top of the `started` the chat request
     // records, so /stats can show how many first messages were a tap. Same
     // beacon as the launcher's `opened` ping in framer-bubble.html.
@@ -448,6 +480,15 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
         )}
       </header>
 
+      {testKey && (
+        <p
+          role="status"
+          className="shrink-0 bg-amber-100 px-5 py-1.5 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+        >
+          {t.testBanner}
+        </p>
+      )}
+
       <div
         ref={scrollRef}
         // GOTCHA: `min-h-0` is what makes this scroll at all. A flex item
@@ -499,6 +540,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
             language={lead.language}
             notes={lead.notes}
             endpoint={leadUrl}
+            testKey={testKey}
             onSent={handleLeadSent}
             onDismiss={() => setLead(null)}
           />

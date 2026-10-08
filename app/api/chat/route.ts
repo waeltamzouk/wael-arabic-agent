@@ -15,6 +15,7 @@ import {
 } from "@/lib/agent";
 import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
 import { depthMetric, record } from "@/lib/stats";
+import { runInTestMode } from "@/lib/test-mode";
 import {
   checkSize,
   clientIp,
@@ -70,7 +71,7 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   // Which site's agent this is. A QUERY PARAM rather than a body field, so it
   // is known before the body is read and even the very first refusals below
   // can answer in the right language. No param means the Arabic site, which
@@ -277,4 +278,10 @@ export async function POST(req: NextRequest) {
 
     return json(req, { error: "Something went wrong talking to Claude." }, 500);
   }
+}
+
+// Runs in test mode when the request carries Wael's test key, so nothing it does
+// is counted. See lib/test-mode.ts.
+export function POST(req: NextRequest) {
+  return runInTestMode(req, () => handlePost(req));
 }

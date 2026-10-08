@@ -17,6 +17,7 @@
 
 import { after } from "next/server";
 import { DEFAULT_SITE, SITES, siteMetric } from "@/lib/site";
+import { inTestMode } from "@/lib/test-mode";
 import { pipeline, upstashEnabled } from "@/lib/upstash";
 
 // The Upstash connection itself lives in lib/upstash.ts, shared with the
@@ -57,6 +58,12 @@ export function lastDays(count: number): string[] {
  */
 export function record(...metrics: string[]) {
   if (metrics.length === 0) return;
+
+  // Wael is testing (see lib/test-mode.ts): say so in the logs, count nothing.
+  if (inTestMode()) {
+    console.log(`[funnel:test] ${metrics.join(" ")} (not counted)`);
+    return;
+  }
 
   console.log(`[funnel] ${metrics.join(" ")}`);
 

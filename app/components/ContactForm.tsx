@@ -19,6 +19,8 @@ type Props = {
   // /api/lead, which re-checks every field of it.
   notes: Record<string, unknown>;
   endpoint: string;
+  // Wael's test key, when the chat is in test mode (lib/test-mode.ts).
+  testKey?: string | null;
   onSent: () => void;
   onDismiss: () => void;
 };
@@ -77,6 +79,7 @@ export default function ContactForm({
   language,
   notes,
   endpoint,
+  testKey,
   onSent,
   onDismiss,
 }: Props) {
@@ -104,7 +107,10 @@ export default function ContactForm({
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(testKey ? { "x-test-key": testKey } : {}),
+        },
         body: JSON.stringify({
           name: name.trim(),
           countryCode,
