@@ -18,6 +18,10 @@ export type ContentSection = {
 export type ClientConfig = {
   // Shown under the logo in the sidebar.
   name: string;
+  // Show the WhatsApp channel's conversations (only the Arabic site has one).
+  whatsapp: boolean;
+  // Show project vs template leads (only the site with the contact form).
+  leadTypes: boolean;
   // Conversations included in the plan each month. A "conversation" is a
   // visitor who sent at least one message (the `started` counter).
   limit: number;
@@ -30,6 +34,8 @@ export type ClientConfig = {
 export const CLIENT_CONFIG: Record<Site, ClientConfig> = {
   waelwebdesign: {
     name: "waelwebdesign.com",
+    whatsapp: true,
+    leadTypes: true,
     limit: 500,
     lang: "ar",
     funnel: ["opened", "started", "engaged", "qualified", "form_shown", "form_submitted"],
@@ -77,6 +83,8 @@ export const CLIENT_CONFIG: Record<Site, ClientConfig> = {
   },
   templates: {
     name: "Wael's Framer templates",
+    whatsapp: false,
+    leadTypes: false,
     limit: 500,
     lang: "en",
     funnel: ["opened", "started", "engaged", "qualified", "discount_offered", "discount_unlocked"],

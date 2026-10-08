@@ -42,6 +42,20 @@ type Copy = {
   numbersAt: (time: string) => string;
   unavailable: string;
   live: string;
+  channelsTitle: string;
+  channelWebsite: string;
+  channelWhatsapp: string;
+  startersTitle: string;
+  startersHint: string;
+  leadTypesTitle: string;
+  leadProject: string;
+  leadTemplate: string;
+  weekdayTitle: string;
+  weekdayBasis: string;
+  weekdayOne: (a: string) => string;
+  weekdayTwo: (a: string, b: string) => string;
+  weekdayEven: string;
+  weekdayFew: string;
   nav: { overview: string; journey: string; activity: string; content: string };
   cardTitle: string;
   cardText: string;
@@ -100,6 +114,20 @@ export const TEXT: Record<Lang, Copy> = {
     numbersAt: (time) => `الأرقام محدّثة الساعة ${time}`,
     unavailable: "الأرقام غير متاحة الآن. حاول لاحقاً.",
     live: "يعمل الآن",
+    channelsTitle: "من أين تأتي المحادثات",
+    channelWebsite: "الموقع",
+    channelWhatsapp: "واتساب",
+    startersTitle: "بدأوا بالضغط على سؤال مقترح",
+    startersHint: "زوار ضغطوا على أحد الأسئلة المقترحة بدل أن يكتبوا رسالتهم الأولى.",
+    leadTypesTitle: "نوع العملاء المحتملين",
+    leadProject: "مشاريع",
+    leadTemplate: "قوالب",
+    weekdayTitle: "أكثر أيام الأسبوع نشاطاً",
+    weekdayBasis: "بناءً على آخر شهرين",
+    weekdayOne: (a) => `معظم زوارك يأتون يوم ${a}.`,
+    weekdayTwo: (a, b) => `معظم زوارك يأتون يومي ${a} و${b}.`,
+    weekdayEven: "زوارك يأتون بشكل متوازن طوال الأسبوع.",
+    weekdayFew: "لا توجد محادثات كافية بعد لرؤية نمط واضح.",
     nav: { overview: "نظرة عامة", journey: "رحلة الزوار", activity: "النشاط", content: "المحتوى" },
     cardTitle: "مساعدك",
     cardText: "جرّبه بنفسك، أو اطلب تغييراً.",
@@ -183,6 +211,20 @@ export const TEXT: Record<Lang, Copy> = {
     numbersAt: (time) => `Numbers updated at ${time}`,
     unavailable: "Numbers are not available right now. Please try again later.",
     live: "Live",
+    channelsTitle: "Where conversations come from",
+    channelWebsite: "Website",
+    channelWhatsapp: "WhatsApp",
+    startersTitle: "Started with a suggested question",
+    startersHint: "Visitors who tapped one of the suggested questions instead of typing their first message.",
+    leadTypesTitle: "Leads by type",
+    leadProject: "Projects",
+    leadTemplate: "Templates",
+    weekdayTitle: "Busiest days of the week",
+    weekdayBasis: "Based on the last two months",
+    weekdayOne: (a) => `Most of your visitors come on ${a}.`,
+    weekdayTwo: (a, b) => `Most of your visitors come on ${a} and ${b}.`,
+    weekdayEven: "Your visitors come fairly evenly through the week.",
+    weekdayFew: "Not enough conversations yet to see a clear pattern.",
     nav: { overview: "Overview", journey: "Journey", activity: "Activity", content: "Content" },
     cardTitle: "Your assistant",
     cardText: "Try it yourself, or ask for a change.",

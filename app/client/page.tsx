@@ -15,7 +15,7 @@ import Dashboard from "@/app/client/Dashboard";
 import { TEXT } from "@/app/client/text";
 import { CLIENT_CONFIG, WHATSAPP_URL } from "@/lib/client-content";
 import { isSite, siteMetric, type Site } from "@/lib/site";
-import { lastDays, readTotals, statsEnabled } from "@/lib/stats";
+import { lastDays, readTotals, statsEnabled, whatsappMetric } from "@/lib/stats";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -65,13 +65,25 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
   // 62 days is this month plus all of last month (each at most 31 days), which
   // is what "compared to last month" needs. Daily keys live for 90.
   const recent = lastDays(62);
-  const names = [...new Set(["started", "lang_ar", "lang_en", ...config.funnel])];
+  const names = [
+    ...new Set([
+      "started",
+      "lang_ar",
+      "lang_en",
+      "starter_tap",
+      ...config.funnel,
+      ...(config.leadTypes ? ["lead_project", "lead_template"] : []),
+    ]),
+  ];
   const metricFor = (name: string) => siteMetric(site, name);
+  // The WhatsApp channel is stored under its own prefix, not the site's.
+  const waKey = whatsappMetric("started");
+  const keys = [...names.map(metricFor), ...(config.whatsapp ? [waKey] : [])];
 
   let byDay: Record<string, Record<string, number>> | null = null;
   if (statsEnabled()) {
     try {
-      ({ byDay } = await readTotals(recent, names.map(metricFor)));
+      ({ byDay } = await readTotals(recent, keys));
     } catch (error) {
       // The reason stays in the logs — a client has nothing to do with it.
       console.error("Client stats read failed:", error);
@@ -99,7 +111,10 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
   // names (`started`, not `templates_started`).
   const days = [...recent].reverse().map((day) => ({
     day,
-    c: Object.fromEntries(names.map((name) => [name, byDay[day]?.[metricFor(name)] ?? 0])),
+    c: {
+      ...Object.fromEntries(names.map((name) => [name, byDay[day]?.[metricFor(name)] ?? 0])),
+      ...(config.whatsapp ? { wa_started: byDay[day]?.[waKey] ?? 0 } : {}),
+    },
   }));
 
   const monthName = new Intl.DateTimeFormat(config.lang === "ar" ? "ar" : "en", {
@@ -120,6 +135,7 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
     <Dashboard
       site={site}
       siteName={config.name}
+      extras={{ whatsapp: config.whatsapp, leadTypes: config.leadTypes }}
       lang={config.lang}
       limit={config.limit}
       funnel={[...config.funnel]}

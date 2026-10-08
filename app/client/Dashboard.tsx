@@ -20,6 +20,7 @@ export type Section = { title: string; items: string[]; updated: string };
 type Props = {
   site: string;
   siteName: string;
+  extras: { whatsapp: boolean; leadTypes: boolean };
   lang: Lang;
   limit: number;
   funnel: string[];
@@ -292,6 +293,45 @@ function RingGauge({
   );
 }
 
+/** Rows of "label — number — share" with a bar under each. */
+function BarRows({
+  rows,
+  total,
+  scale,
+  ready,
+}: {
+  rows: { label: string; count: number; color: string }[];
+  total: number;
+  scale?: number;
+  ready: boolean;
+}) {
+  const full = scale ?? total;
+  return (
+    <ul className="flex flex-col gap-4">
+      {rows.map((row) => (
+        <li key={row.label}>
+          <div className="flex items-baseline justify-between gap-3 text-base">
+            <span>{row.label}</span>
+            <span className="flex items-baseline gap-2">
+              <bdi className="font-semibold tabular-nums">{row.count}</bdi>
+              <bdi className="text-sm text-[#8f8f98]">{pct(row.count, total)}</bdi>
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#26262b]">
+            <div
+              className={`h-full rounded-full ${GROW}`}
+              style={{
+                width: ready && full ? `${(row.count / full) * 100}%` : "0%",
+                background: row.color,
+              }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Conversations per day: a smooth area line, a crosshair and a tooltip on hover. */
 function AreaChart({
   data,
@@ -471,6 +511,7 @@ function AreaChart({
 export default function Dashboard({
   site,
   siteName,
+  extras,
   lang,
   limit,
   funnel,
@@ -577,6 +618,39 @@ export default function Dashboard({
   const shortDay = (day: string) => shortFormat.format(new Date(`${day}T12:00:00Z`));
 
   const insight = t.insight(used, change);
+
+  // ---- Extra cards ----------------------------------------------------------
+  const taps = sum(inRange, "starter_tap");
+  const waStarted = sum(inRange, "wa_started");
+  const leadProject = sum(inRange, "lead_project");
+  const leadTemplate = sum(inRange, "lead_template");
+
+  // Busiest weekdays, from every day we have (about two months) rather than the
+  // chosen period: seven days holds each weekday once, which is noise. Sunday
+  // first — the Gulf working week.
+  const weekdayFormat = new Intl.DateTimeFormat(loc, { timeZone: "UTC", weekday: "long" });
+  const weekdayCounts = Array.from({ length: 7 }, () => 0);
+  for (const d of days) {
+    weekdayCounts[new Date(`${d.day}T12:00:00Z`).getUTCDay()] += d.c.started ?? 0;
+  }
+  const weekdayTotal = weekdayCounts.reduce((a, b) => a + b, 0);
+  const weekdayOrder = weekdayCounts.map((_, i) => i).sort((a, b) => weekdayCounts[b] - weekdayCounts[a]);
+  const weekdayName = (i: number) => weekdayFormat.format(new Date(Date.UTC(2023, 0, 1 + i)));
+  const [first, second] = weekdayOrder;
+  const average7 = weekdayTotal / 7;
+  const weekdaySentence =
+    weekdayTotal < 14
+      ? t.weekdayFew
+      : weekdayCounts[first] < average7 * 1.25
+        ? t.weekdayEven
+        : weekdayCounts[second] >= weekdayCounts[first] * 0.8
+          ? t.weekdayTwo(weekdayName(Math.min(first, second)), weekdayName(Math.max(first, second)))
+          : t.weekdayOne(weekdayName(first));
+  const weekdayHot = new Set(
+    weekdayTotal >= 14 && weekdayCounts[first] >= average7 * 1.25
+      ? weekdayOrder.filter((i) => weekdayCounts[i] >= weekdayCounts[first] * 0.8).slice(0, 2)
+      : []
+  );
 
   const chooseRange = (next: Range) => {
     setRange(next);
@@ -964,11 +1038,72 @@ export default function Dashboard({
           </ul>
         </Card>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:col-span-2 xl:grid-cols-3">
+        {extras.whatsapp && (
+          <Card>
+            <div className="mb-4 text-sm text-[#9a9aa3]">{t.channelsTitle}</div>
+            <BarRows
+              ready={ready}
+              total={started + waStarted}
+              rows={[
+                { label: t.channelWebsite, count: started, color: "var(--accent)" },
+                { label: t.channelWhatsapp, count: waStarted, color: "#4ade80" },
+              ]}
+            />
+          </Card>
+        )}
+        <Card>
+          <div className="text-sm text-[#9a9aa3]">{t.startersTitle}</div>
+          <div className="mt-2 flex items-baseline gap-3">
+            <span className="text-5xl font-semibold leading-none tabular-nums">
+              <bdi>{taps}</bdi>
+            </span>
+            <span className="text-base text-[#8f8f98]">{t.ofConversations(pct(taps, started))}</span>
+          </div>
+          <p className="mt-4 text-sm leading-relaxed text-[#8f8f98]">{t.startersHint}</p>
+        </Card>
+        {extras.leadTypes && (
+          <Card className="md:col-span-2 xl:col-span-1">
+            <div className="mb-4 text-sm text-[#9a9aa3]">{t.leadTypesTitle}</div>
+            <BarRows
+              ready={ready}
+              total={leadProject + leadTemplate}
+              rows={[
+                { label: t.leadProject, count: leadProject, color: "var(--accent)" },
+                { label: t.leadTemplate, count: leadTemplate, color: "#7a7a86" },
+              ]}
+            />
+          </Card>
+        )}
+      </div>
     </div>
   );
 
   const rows = [...inRange].reverse();
+  const weekdayCard = (
+    <Card>
+      <h2 className="text-lg font-semibold">{t.weekdayTitle}</h2>
+      <p className="mt-2 text-xl leading-snug text-[#c9c9d0]">{weekdaySentence}</p>
+      <p className="mb-5 mt-1 text-sm text-[#8f8f98]">{t.weekdayBasis}</p>
+      {weekdayTotal >= 14 && (
+        <BarRows
+          ready={ready}
+          total={weekdayTotal}
+          scale={Math.max(1, ...weekdayCounts)}
+          rows={weekdayCounts.map((count, i) => ({
+            label: weekdayName(i),
+            count,
+            color: weekdayHot.has(i) ? "var(--accent)" : "#4b4b55",
+          }))}
+        />
+      )}
+    </Card>
+  );
+
   const activity = (
+    <div className="flex flex-col gap-4">
+      {weekdayCard}
     <Card className="!px-3 sm:!px-4">
       <div
         className="grid grid-cols-[1.5fr_1fr_1.6fr_1fr] items-end gap-2 border-b border-[#26262b] px-2 pb-3 text-sm leading-tight text-[#8f8f98] sm:px-3"
@@ -1010,6 +1145,7 @@ export default function Dashboard({
         })}
       </ul>
     </Card>
+    </div>
   );
 
   const content = (

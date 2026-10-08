@@ -1899,6 +1899,16 @@ And for Wael: start a fresh chat at the start of each week's task.
   280px. One focus ring (`FOCUS`) on every control. The page is dark in every
   OS theme on purpose. Bars/gauges grow in on load (`ready`); reduced motion
   turns it off.
+- EXTRA CARDS (Oct 8), all from counters that already existed, nothing new
+  stored: Journey shows "where conversations come from" (website `started` vs
+  `whatsapp_started`, waelwebdesign only), "started with a suggested question"
+  (`starter_tap`, both sites) and "leads by type" (`lead_project` vs
+  `lead_template`, website only — WhatsApp leads are NOT in it). Activity shows
+  the busiest weekdays and a one-line sentence, from ALL ~62 days, not the
+  chosen period (7 days holds each weekday once, which is noise). Per-site
+  switches `whatsapp` and `leadTypes` are in `lib/client-content.ts`.
+  OPEN QUESTION for Wael: the plan card counts website `started` only —
+  WhatsApp conversations are shown but are not counted toward the 500.
 - GOTCHA: `var(--accent)` does NOT work in an SVG presentation ATTRIBUTE
   (`stroke="var(--accent)"` draws nothing). Use `style={{ stroke: ... }}`.
 - GOTCHA: SVG tick coordinates must be rounded. Server and browser print the
