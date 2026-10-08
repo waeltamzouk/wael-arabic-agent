@@ -764,7 +764,7 @@ export default function Dashboard({
   // ---- The four views ---------------------------------------------------------
 
   const gaugeCard = (
-    <Card className="xl:col-start-2 xl:row-span-2 xl:row-start-1">
+    <Card className="xl:col-start-3 xl:row-span-2 xl:row-start-1">
       {/* Ring on one side and the details on the other from `lg`; stacked when
           the card is the narrow column (xl) or on a phone. */}
       <div className="grid items-center gap-6 lg:grid-cols-2 xl:grid-cols-1">
@@ -853,10 +853,10 @@ export default function Dashboard({
   ];
 
   const overview = (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid gap-4 xl:grid-cols-3">
       {gaugeCard}
 
-      <Card className="xl:col-start-1 xl:row-start-1">
+      <Card className="xl:col-span-2 xl:col-start-1 xl:row-start-1">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
           {kpis.map((k, i) => (
             <div
@@ -876,7 +876,7 @@ export default function Dashboard({
         </dl>
       </Card>
 
-      <Card className="xl:col-start-1 xl:row-start-2">
+      <Card className="xl:col-span-2 xl:col-start-1 xl:row-start-2">
         <Heading hint={t.chartHint}>{t.chart}</Heading>
         <AreaChart
           data={inRange}
@@ -915,7 +915,7 @@ export default function Dashboard({
         )}
       </Card>
 
-      <Card className="xl:col-span-2">
+      <Card className="xl:col-span-3">
         <div className="flex items-start gap-4">
           <span
             className="flex size-11 shrink-0 items-center justify-center rounded-2xl text-[var(--accent)]"
@@ -937,7 +937,7 @@ export default function Dashboard({
 
   const journey = (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card className="md:col-span-2 xl:row-span-2">
+      <Card className="md:col-span-2 xl:col-span-2 xl:row-span-2">
         <p className="mb-5 text-base text-[#8f8f98]">{t.funnelHint}</p>
         <ul className="flex flex-col gap-1">
           {steps.map((step, i) => {
@@ -1086,7 +1086,7 @@ export default function Dashboard({
   const leadingBlanks = new Date(`${inRange[0].day}T12:00:00Z`).getUTCDay();
 
   const calendarCard = (
-    <Card>
+    <Card className="xl:col-span-2">
       <p className="mb-5 text-base text-[#8f8f98]">{t.calendarHint}</p>
       <div className="mx-auto max-w-xl">
         <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-sm text-[#8f8f98] sm:gap-2">
@@ -1221,7 +1221,7 @@ export default function Dashboard({
   );
 
   const activity = (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid items-start gap-4 xl:grid-cols-3">
       {calendarCard}
       <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-1">
         {dayCard}

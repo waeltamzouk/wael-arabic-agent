@@ -1919,6 +1919,11 @@ And for Wael: start a fresh chat at the start of each week's task.
   and two rows, the two small cards stack in the third, and the bottom row is
   three equal cards on the same three columns. Do not nest a second grid inside
   it — that is what made the cards misalign before.
+- ONE COLUMN GRID FOR EVERY VIEW (Oct 8): Overview, Journey and Activity all use
+  `xl:grid-cols-3` — a wide column of two thirds and a side column of one third.
+  Measured at 1900px: side cards 403px, main cards 821px, on every page. They
+  differed before because each view had its own hard-coded widths (340px, 1/3,
+  380px). New views must use the same three columns; do not add a pixel width.
 - GOTCHA: `var(--accent)` does NOT work in an SVG presentation ATTRIBUTE
   (`stroke="var(--accent)"` draws nothing). Use `style={{ stroke: ... }}`.
 - GOTCHA: SVG tick coordinates must be rounded. Server and browser print the
