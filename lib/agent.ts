@@ -55,13 +55,20 @@ export const CONTACT_TOOL: Anthropic.Tool = {
         description:
           "'project' when the visitor wants a new site built. 'template' when the visitor wants one of the ready-made templates customized.",
       },
-      business: { type: "string", description: "What the business does." },
+      business: {
+        type: "string",
+        description: "What the business does — only if the visitor said.",
+      },
       project: {
         type: "string",
         description:
           "For a project lead: landing page, business website, advanced website. For a template lead: the template being customized, e.g. تخصيص قالب نَبض.",
       },
-      budget: { type: "string", description: "Rough budget the visitor gave." },
+      budget: {
+        type: "string",
+        description:
+          "Rough budget — ONLY if the visitor volunteered it. Never ask for it.",
+      },
       timeline: { type: "string", description: "When they want to launch." },
       needs: {
         type: "string",
@@ -111,6 +118,65 @@ export function detectLanguage(text: string, tie: "ar" | "en" = "ar"): "ar" | "e
   if (arabic > latin) return "ar";
   return tie;
 }
+
+// ---- Show the form straight away (Oct 8) -----------------------------------
+//
+// Wael's decision: a visitor who asks about the PRICE, the TIMELINE or STARTING
+// a project is shown the contact form in the same reply, with no qualifying
+// questions first. The agent still answers the question — a form instead of the
+// price would feel like a wall — it just does not make them wait for the form.
+//
+// Done in CODE, not only in the prompt: a rule that must never slip does not
+// belong in the middle of a long prompt (see "Template links" in CLAUDE.md). The
+// prompt carries the same rule for the cases this does not catch.
+//
+// THE PRECISION MATTERS MORE THAN THE RECALL. A form shown to someone who only
+// wanted a template, or a Framer subscription price, is worse than a form that
+// comes one question later. So this only fires on clear phrases, and not at all
+// when:
+//   - the form was already shown in this conversation (the widget says so),
+//   - the visitor mentioned a template in their last three messages, because a
+//     template buyer clicks the Polar link and is NOT asked for contact details,
+//   - the question is about Framer's own plans, a domain or hosting, which are
+//     not Wael's prices and the agent never quotes them.
+// When it does not fire, the model decides, under the same prompt rules.
+function normalizeArabic(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, "") // diacritics and tatweel
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+// Written against NORMALISED text: no hamza, ة is ه, ى is ي.
+const ASKS_PRICE = /سعر|اسعار|كلف|بكم|how much|\bpric(e|es|ing)\b|\bcosts?\b|\bquote\b/;
+const ASKS_TIMELINE =
+  /كم (ياخذ|تاخذ|ياخذون|تاخذون|يستغرق|تستغرق|يحتاج|المده|مده|الوقت|وقت)|المده|متي (يخلص|ينتهي|تسلم|يتسلم|يسلم|تسلمون|يجهز|يكون جاهز)|تسليم|how long|\btimeline\b|turnaround|how (fast|soon)|\bdeadline\b/;
+const WANTS_TO_START =
+  /ابغي (ابدا|اطلب|اتعاقد|اشتغل|موقع|اصمم|اعمل|صفحه)|ابي (ابدا|اطلب|موقع|صفحه)|اريد (ان )?(ابدا|موقع|صفحه)|احتاج (الي )?(موقع|صفحه)|نبدا|ابدا (مشروع|معك|معكم)|عندي مشروع|مشروع جديد|get started|start (a|my|the) (project|website|site)|(want|need|looking for|like) (a|an) (new )?(website|web site|site|landing page)|build (me|us) |hire you|work with you/;
+const NOT_A_PROJECT =
+  /قالب|قوالب|template|اشتراك|subscription|دومين|domain|استضافه|hosting|(سعر|اسعار|تكلف\S*|كلف\S*)\s*(ال)?(اشتراك\s*)?فريمر\b|framer (plan|plans|pricing|subscription)/;
+
+export function wantsQuickForm(messages: ChatMessage[], formShown: boolean): boolean {
+  if (formShown) return false;
+
+  const userTexts = messages
+    .filter((m) => m.role === "user")
+    .slice(-3)
+    .map((m) => normalizeArabic(m.content));
+  const last = userTexts[userTexts.length - 1];
+  if (!last) return false;
+
+  if (userTexts.some((text) => NOT_A_PROJECT.test(text))) return false;
+
+  return ASKS_PRICE.test(last) || ASKS_TIMELINE.test(last) || WANTS_TO_START.test(last);
+}
+
+// What the model is told once the form is forced. The first call is forced to
+// call the tool, so it writes no text; this second call writes the whole reply.
+export const QUICK_FORM_RESULT =
+  "The contact form is now shown to the visitor, below your reply. They just asked about the price, the timeline or starting a project. Write ONE reply: first answer their question completely and directly, with the real numbers from your instructions (the price, the duration). Then add one short sentence asking them to fill in the form below. Do not ask any other question. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.";
 
 // GOTCHA that cost a live bug: the heading used to read "THIS OVERRIDES EVERY
 // RULE ABOVE". It was only ever meant to override the LANGUAGE rules, but the

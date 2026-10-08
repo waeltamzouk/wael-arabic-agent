@@ -84,11 +84,14 @@ export async function sendLead(lead: Lead, site: Site = DEFAULT_SITE) {
     // Omitted entirely rather than shown as a dash: most leads will not have
     // one, and nine "Email: —" lines a week is just noise in the inbox.
     ...(lead.email?.trim() ? [line("Email", lead.email)] : []),
-    line("Business", lead.business),
+    // The agent no longer asks about the business, the budget or the content
+    // (Wael would rather ask on the call), so these are usually empty. Left out
+    // rather than printed as dashes, like the email.
+    ...(lead.business?.trim() ? [line("Business", lead.business)] : []),
     line("Project", lead.project),
-    line("Budget", lead.budget),
+    ...(lead.budget?.trim() ? [line("Budget", lead.budget)] : []),
     line("Timeline", lead.timeline),
-    line("Needs", lead.needs),
+    ...(lead.needs?.trim() ? [line("Needs", lead.needs)] : []),
     line("Quality", lead.quality),
   ].join("\n");
 

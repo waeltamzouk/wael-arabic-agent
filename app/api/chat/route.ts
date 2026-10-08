@@ -6,9 +6,11 @@ import {
   FALLBACK_REPLY,
   MAX_TOKENS,
   MODEL,
+  QUICK_FORM_RESULT,
   languageOf,
   stripMarkdown,
   systemFor,
+  wantsQuickForm,
   type ChatMessage,
 } from "@/lib/agent";
 import { DEFAULT_SITE, siteFromParam, siteMetric, type Site } from "@/lib/site";
@@ -98,6 +100,10 @@ export async function POST(req: NextRequest) {
   }
 
   const messages = (body as { messages?: unknown })?.messages;
+  // Sent by the widget once the contact form has been shown in this
+  // conversation. Only ever used to HOLD BACK the form, so a visitor who sends
+  // `true` by hand gains nothing.
+  const formShown = (body as { formShown?: unknown })?.formShown === true;
 
   if (!isValidMessages(messages)) {
     return json(
@@ -126,7 +132,13 @@ export async function POST(req: NextRequest) {
     // form for Wael; the English site trades an EMAIL for the discount code.
     // Keeping them apart means the English site can never show the Arabic
     // lead form, and the Arabic site can never hand out the English code.
-    const tools = site === DEFAULT_SITE ? [CONTACT_TOOL] : [DISCOUNT_TOOL];
+    //
+    // Once the form has been shown in this conversation the Arabic site gets NO
+    // tool at all, so it cannot show it a second time however the visitor
+    // phrases the next question. (The widget stores plain text only, so no
+    // tool_use block is ever replayed that would need the tool to exist.)
+    const tools =
+      site === DEFAULT_SITE ? (formShown ? [] : [CONTACT_TOOL]) : [DISCOUNT_TOOL];
 
     // Funnel milestones. `depthMetric` only returns a value at exact depths a
     // conversation passes through once, so this counts each conversation once
@@ -147,11 +159,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // A visitor asking about the price, the timeline or starting a project gets
+    // the form in this same reply. Arabic site only: the English site has no
+    // contact form, and WhatsApp runs its own loop. See wantsQuickForm.
+    const quickForm = site === DEFAULT_SITE && wantsQuickForm(messages, formShown);
+    if (quickForm) console.log("[form] shown straight away");
+
     const first = await anthropic.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system,
-      tools,
+      ...(tools.length ? { tools } : {}),
+      // Forced, so it cannot slip. The tool call writes no text; the second
+      // call below writes the whole reply.
+      ...(quickForm
+        ? { tool_choice: { type: "tool" as const, name: CONTACT_TOOL.name } }
+        : {}),
       messages,
     });
 
@@ -202,7 +225,9 @@ export async function POST(req: NextRequest) {
                 // form, so tell it exactly what the visitor can now see.
                 content: unlock
                   ? unlock.result
-                  : "The contact form is now shown to the visitor, below your reply. Write one short sentence asking them to fill it in. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.",
+                  : quickForm
+                    ? QUICK_FORM_RESULT
+                    : "The contact form is now shown to the visitor, below your reply. Write one short sentence asking them to fill it in. Do not ask for their name or phone number in words, and do not thank them for details they have not sent yet.",
               },
             ],
           },

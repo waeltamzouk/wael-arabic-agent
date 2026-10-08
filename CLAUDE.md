@@ -314,12 +314,9 @@ Explain as you go. Ask before big changes.
   AED later is a one-line edit in `lib/system-prompt.ts`.
 - "Never invent a price" still holds. It means don't make one up —
   quoting these three is fine.
-- Qualifying questions, 4-5 of them, asked before contact details:
-  1. What kind of site
-  2. What the business does
-  3. Rough budget
-  4. Launch timeline
-  5. Existing content or branding
+- Qualifying questions: SUPERSEDED Oct 8 — only TWO now (site type, launch
+  date), and the form can come with none. See "Form timing (Oct 8)". The old
+  five were: type, business, budget, timeline, content.
 - Then ask for name + phone ONLY. Every extra field kills conversion.
 - Lead arrives by email to Wael, formatted:
   `Name / Business / Project / Budget / Timeline / Needs / Quality`
@@ -1950,3 +1947,59 @@ And for Wael: start a fresh chat at the start of each week's task.
   answers `POST /pipeline`, then start `next dev` with
   `UPSTASH_REDIS_REST_URL=http://localhost:4010 UPSTASH_REDIS_REST_TOKEN=x
   STATS_KEY_<SITE>=test`. Env on the command line beats `.env.local`.
+
+## Form timing (Oct 8) — Wael's decision
+- BEFORE: five qualifying questions (type, business, budget, timeline, content),
+  then the form. TOO FAR AWAY: most people left before it.
+- NOW, two rules, both on the Arabic site:
+  1. A visitor who asks about the PRICE, the TIMELINE or STARTING a project gets
+     the answer AND the form in the same reply, with no questions first. Decided
+     in code: `wantsQuickForm()` in `lib/agent.ts` matches clear phrases (Arabic
+     and English), and `app/api/chat/route.ts` then forces the `request_contact`
+     tool; a second call writes the reply (`QUICK_FORM_RESULT`). The form
+     REPLACES NOTHING — the agent still gives the real number first.
+  2. Every other new-project visitor is asked at most TWO questions: site type,
+     then launch date, and then the form. No budget question (prices are quoted
+     anyway), no business or content question (Wael asks on the call). If the
+     visitor volunteers them, the agent still records them. This is the prompt
+     (`## أسئلة التأهيل` in `lib/prompts/ar-waelwebdesign.ts`).
+- `wantsQuickForm` favours PRECISION over recall, on purpose. It never fires when
+  the form was already shown, when a TEMPLATE is mentioned in the visitor's last
+  three messages (a template buyer clicks the Polar link and is not asked for
+  contact details), or for Framer's own plans, a domain or hosting. When it does
+  not fire, the model decides under the same prompt. Checked on Oct 8: 18
+  phrases that must fire and 11 that must not (a standalone script), plus nine
+  real conversations against real Claude.
+- THE FORM IS SHOWN ONCE PER CONVERSATION, enforced in code: the widget sends
+  `formShown: true` (kept in sessionStorage as `wael-chat:messages:…:form-seen`,
+  separate from `lead` because dismissing the form sets `lead` to null), and the
+  route then gives the Arabic site NO tool at all. Before this, a price question
+  after the form re-showed it.
+- WhatsApp shares the prompt, so it also asks two questions at most, but it is
+  NOT forced: its own loop and its "already asked" state are untouched.
+- THE FUNNEL CHANGED MEANING. `qualified` (6 visitor messages) will now rarely
+  fire, because the form comes at message 1-3. `form_shown` and `form_submitted`
+  are the numbers to watch. Old and new days are not comparable in the middle of
+  the funnel; the stats labels still say "Got 6 exchanges in".
+- The lead email leaves out Business, Budget and Needs when empty (they usually
+  are now), like Email.
+
+## Clearing test traffic out of the counters (Oct 8)
+- Every test conversation typed while building the agent is in the counters and
+  looks like a real visitor. `scripts/reset-counters.mjs` removes them. It is a
+  DRY RUN until `--yes` is added, takes `--from/--to` days (or `--all`) and an
+  optional `--site`, lowers the all-time totals by exactly what the deleted days
+  held, and never touches the Polar buyer counters or anything outside `chat:*`
+  (the WhatsApp memory keys are safe). Tested Oct 8 against a stand-in Redis.
+- Look at /stats "By day" first to see which days were tests.
+- IDEA, not built: a test switch (a secret in the /embed link) that stops
+  counting, so the next round of testing does not pollute the numbers again.
+
+## Conversation log (decided Oct 8, NOT built yet)
+- Wael wants a conversation log, and the CLIENT will see what visitors typed.
+- That reverses "counts only, nothing personal stored" (see "Funnel visibility")
+  and the client dashboard's "no transcripts" rule, so it needs, before it ships:
+  a conversation id (today there is none), a retention limit (suggested 30 days),
+  hiding phone numbers and emails typed into the chat, and ONE visible line in
+  the chat widget saying conversations are saved. Without that line it is a
+  privacy problem, not a feature. Build it for Wael's own page first.

@@ -151,6 +151,22 @@ function isLeadState(value: unknown): value is LeadState {
   );
 }
 
+// Whether the contact form has been shown in this conversation. Kept apart from
+// `lead`, because dismissing the form sets that to null — and "never shown" and
+// "shown and dismissed" must not look the same to the server, or a visitor who
+// closed the form would be shown it again on their next price question.
+function formSeenKey(site: Site) {
+  return `${storageKey(site)}:form-seen`;
+}
+
+function loadFormSeen(site: Site): boolean {
+  try {
+    return sessionStorage.getItem(formSeenKey(site)) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function loadLead(site: Site): LeadState | null {
   try {
     const raw = sessionStorage.getItem(leadKey(site));
@@ -190,6 +206,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lead, setLead] = useState<LeadState | null>(null);
+  const [formSeen, setFormSeen] = useState(false);
   // False until sessionStorage has been read. The server renders an empty
   // list, so without this the starters would flash on every reload of a saved
   // conversation before the restore landed — the render-order twin of the
@@ -239,6 +256,8 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
     if (restored.length) setMessages(restored);
     const restoredLead = loadLead(site);
     if (restoredLead) setLead(restoredLead);
+    // Also true for any restored conversation that has a form state at all.
+    setFormSeen(loadFormSeen(site) || restoredLead !== null);
     setRestored(true);
   }, [site]);
 
@@ -275,7 +294,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
       const res = await fetch(chatUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, formShown: formSeen }),
       });
 
       const data: {
@@ -296,6 +315,12 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
       // Only ever set by the route, and only on the turn Claude asked for it.
       if (data.contactForm) {
         setLead({ status: "pending", ...data.contactForm });
+        setFormSeen(true);
+        try {
+          sessionStorage.setItem(formSeenKey(site), "1");
+        } catch {
+          // Storage blocked: the flag lives on in state for this page view.
+        }
       }
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : t.error);
