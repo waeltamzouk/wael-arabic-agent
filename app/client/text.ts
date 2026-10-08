@@ -63,7 +63,10 @@ type Copy = {
   expand: string;
   vsPrior: string;
   insight: (used: number, change: number | null) => { pre: string; strong: string; post: string };
-  colDay: string;
+  calendarHint: string;
+  less: string;
+  more: string;
+  pickDay: string;
   colConv: string;
   usedLabel: string;
   remainingLabel: string;
@@ -144,7 +147,10 @@ export const TEXT: Record<Lang, Copy> = {
             ? " هذا الشهر حتى الآن، بنفس عدد الشهر الماضي في نفس الفترة."
             : ` هذا الشهر حتى الآن، أي ${Math.abs(change)}% ${change > 0 ? "أكثر" : "أقل"} من نفس الفترة الشهر الماضي.`,
     }),
-    colDay: "اليوم",
+    calendarHint: "كل مربع يوم. كلما كان لونه أقوى، كانت محادثاته أكثر. اضغط على أي يوم لترى تفاصيله.",
+    less: "أقل",
+    more: "أكثر",
+    pickDay: "اضغط على أي يوم في التقويم لترى أرقامه.",
     colConv: "المحادثات",
     usedLabel: "مستخدم",
     remainingLabel: "المتبقي",
@@ -241,7 +247,10 @@ export const TEXT: Record<Lang, Copy> = {
             ? " this month so far, the same as last month at this point."
             : ` this month so far, ${Math.abs(change)}% ${change > 0 ? "more" : "fewer"} than the same period last month.`,
     }),
-    colDay: "Day",
+    calendarHint: "Each square is a day. The stronger the colour, the more conversations. Tap a day to see its numbers.",
+    less: "Less",
+    more: "More",
+    pickDay: "Tap a day in the calendar to see its numbers.",
     colConv: "Conversations",
     usedLabel: "Used",
     remainingLabel: "Remaining",

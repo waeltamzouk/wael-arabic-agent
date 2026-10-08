@@ -608,14 +608,7 @@ export default function Dashboard({
     day: "numeric",
     month: "long",
   });
-  const shortFormat = new Intl.DateTimeFormat(loc, {
-    timeZone: "UTC",
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
   const niceDay = (day: string) => dateFormat.format(new Date(`${day}T12:00:00Z`));
-  const shortDay = (day: string) => shortFormat.format(new Date(`${day}T12:00:00Z`));
 
   const insight = t.insight(used, change);
 
@@ -943,8 +936,8 @@ export default function Dashboard({
   );
 
   const journey = (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <Card>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <Card className="md:col-span-2 xl:row-span-2">
         <p className="mb-5 text-base text-[#8f8f98]">{t.funnelHint}</p>
         <ul className="flex flex-col gap-1">
           {steps.map((step, i) => {
@@ -998,8 +991,7 @@ export default function Dashboard({
         </ul>
       </Card>
 
-      <div className="flex flex-col gap-4">
-        <Card>
+        <Card className="flex flex-col justify-between">
           <div className="text-sm text-[#9a9aa3]">{t.steps[lastStep]}</div>
           <div className="mt-2 flex items-baseline gap-3">
             <span className="text-5xl font-semibold leading-none tabular-nums">
@@ -1012,7 +1004,7 @@ export default function Dashboard({
           </div>
         </Card>
 
-        <Card>
+        <Card className="flex flex-col justify-center">
           <div className="text-sm text-[#9a9aa3]">{t.language}</div>
           <ul className="mt-4 flex flex-col gap-4">
             {[
@@ -1037,11 +1029,9 @@ export default function Dashboard({
             ))}
           </ul>
         </Card>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:col-span-2 xl:grid-cols-3">
         {extras.whatsapp && (
-          <Card>
+          <Card className="flex flex-col">
             <div className="mb-4 text-sm text-[#9a9aa3]">{t.channelsTitle}</div>
             <BarRows
               ready={ready}
@@ -1053,7 +1043,7 @@ export default function Dashboard({
             />
           </Card>
         )}
-        <Card>
+        <Card className="flex flex-col">
           <div className="text-sm text-[#9a9aa3]">{t.startersTitle}</div>
           <div className="mt-2 flex items-baseline gap-3">
             <span className="text-5xl font-semibold leading-none tabular-nums">
@@ -1064,7 +1054,7 @@ export default function Dashboard({
           <p className="mt-4 text-sm leading-relaxed text-[#8f8f98]">{t.startersHint}</p>
         </Card>
         {extras.leadTypes && (
-          <Card className="md:col-span-2 xl:col-span-1">
+          <Card className="flex flex-col md:col-span-2 xl:col-span-1">
             <div className="mb-4 text-sm text-[#9a9aa3]">{t.leadTypesTitle}</div>
             <BarRows
               ready={ready}
@@ -1076,75 +1066,167 @@ export default function Dashboard({
             />
           </Card>
         )}
-      </div>
     </div>
   );
 
-  const rows = [...inRange].reverse();
+  // Short weekday names for the column labels. Arabic drops the leading "ال"
+  // (الثلاثاء -> ثلاثاء) so seven of them fit across a phone.
+  const weekdayShort = (i: number) =>
+    lang === "ar"
+      ? weekdayName(i).replace(/^ال/, "")
+      : new Intl.DateTimeFormat(loc, { timeZone: "UTC", weekday: "short" }).format(
+          new Date(Date.UTC(2023, 0, 1 + i))
+        );
+
+  // ---- Activity: a calendar of the chosen period ------------------------------
+  // One cell per day, shaded by how many conversations it had. Empty days stay
+  // dark instead of printing a wall of zeros, and the weekday columns line up so
+  // a busy Sunday shows as a busy column.
+  const calendarMax = Math.max(1, ...inRange.map((d) => d.c.started ?? 0));
+  const leadingBlanks = new Date(`${inRange[0].day}T12:00:00Z`).getUTCDay();
+
+  const calendarCard = (
+    <Card>
+      <p className="mb-5 text-base text-[#8f8f98]">{t.calendarHint}</p>
+      <div className="mx-auto max-w-xl">
+        <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-sm text-[#8f8f98] sm:gap-2">
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={i} className="truncate">
+              {weekdayShort(i)}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {Array.from({ length: leadingBlanks }, (_, i) => (
+            <span key={`blank-${i}`} aria-hidden="true" />
+          ))}
+          {inRange.map((d) => {
+            const count = d.c.started ?? 0;
+            const level = count / calendarMax;
+            const selected = selectedDay === d.day;
+            return (
+              <button
+                key={d.day}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`${niceDay(d.day)}: ${count}`}
+                title={`${niceDay(d.day)}: ${count}`}
+                onClick={() => setSelectedDay(selected ? null : d.day)}
+                className={`flex aspect-square flex-col justify-between rounded-xl p-1.5 text-start transition-transform hover:scale-[1.04] sm:p-2.5 ${FOCUS}`}
+                style={{
+                  background:
+                    count === 0
+                      ? "#18181c"
+                      : `color-mix(in srgb, var(--accent) ${Math.round(22 + level * 68)}%, #18181c)`,
+                  color: level > 0.55 ? "#fff" : "#c9c9d0",
+                  outline: selected ? "2px solid #ededed" : "none",
+                  outlineOffset: "2px",
+                }}
+              >
+                <bdi className="text-sm leading-none opacity-80">{dayOfMonth(d.day)}</bdi>
+                {count > 0 && (
+                  <bdi className="self-end text-lg font-semibold leading-none tabular-nums">{count}</bdi>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#8f8f98]">
+          <span>{t.less}</span>
+          {[0, 0.25, 0.5, 0.75, 1].map((l) => (
+            <span
+              key={l}
+              className="size-4 rounded"
+              style={{
+                background:
+                  l === 0
+                    ? "#18181c"
+                    : `color-mix(in srgb, var(--accent) ${Math.round(22 + l * 68)}%, #18181c)`,
+                border: l === 0 ? "1px solid #2c2c32" : "none",
+              }}
+            />
+          ))}
+          <span>{t.more}</span>
+        </div>
+      </div>
+    </Card>
+  );
+
+  const dayCard = (
+    <Card>
+      {picked ? (
+        <>
+          <div className="text-lg font-semibold">{niceDay(picked.day)}</div>
+          <div className="mt-3 flex items-baseline gap-3">
+            <span className="text-5xl font-semibold leading-none tabular-nums">
+              <bdi>{picked.c.started ?? 0}</bdi>
+            </span>
+            <span className="text-base text-[#8f8f98]">{t.colConv}</span>
+          </div>
+          {(picked.c.started ?? 0) === 0 ? (
+            <p className="mt-4 text-base text-[#9a9aa3]">{t.noConversations}</p>
+          ) : (
+            <ul className="mt-5 flex flex-col gap-2.5 border-t border-[#26262b] pt-4 text-base text-[#c9c9d0]">
+              {funnel.map((name) => (
+                <li key={name} className="flex items-baseline justify-between gap-3">
+                  <span>{t.steps[name]}</span>
+                  <span className="font-semibold tabular-nums">{picked.c[name] ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <p className="text-base text-[#8f8f98]">{t.pickDay}</p>
+      )}
+    </Card>
+  );
+
+  // The weekday pattern as seven columns: the busy ones in orange, with the
+  // sentence on top.
+  const weekdayMax = Math.max(1, ...weekdayCounts);
   const weekdayCard = (
     <Card>
       <h2 className="text-lg font-semibold">{t.weekdayTitle}</h2>
       <p className="mt-2 text-xl leading-snug text-[#c9c9d0]">{weekdaySentence}</p>
-      <p className="mb-5 mt-1 text-sm text-[#8f8f98]">{t.weekdayBasis}</p>
+      <p className="mt-1 text-sm text-[#8f8f98]">{t.weekdayBasis}</p>
       {weekdayTotal >= 14 && (
-        <BarRows
-          ready={ready}
-          total={weekdayTotal}
-          scale={Math.max(1, ...weekdayCounts)}
-          rows={weekdayCounts.map((count, i) => ({
-            label: weekdayName(i),
-            count,
-            color: weekdayHot.has(i) ? "var(--accent)" : "#4b4b55",
-          }))}
-        />
+        <div className="mt-6 grid grid-cols-7 gap-1.5 sm:gap-3">
+          {weekdayCounts.map((count, i) => (
+            <div key={i} className="flex min-w-0 flex-col items-center">
+              <span className="mb-1.5 text-sm tabular-nums text-[#9a9aa3]">
+                <bdi>{pct(count, weekdayTotal)}</bdi>
+              </span>
+              <div className="flex h-32 w-full items-end justify-center">
+                <span
+                  className={`block w-full max-w-10 rounded-t-lg ${GROW}`}
+                  style={{
+                    height: ready ? `${Math.max(3, (count / weekdayMax) * 100)}%` : "3px",
+                    background: weekdayHot.has(i) ? "var(--accent)" : "#3a3a42",
+                  }}
+                />
+              </div>
+              <span
+                className={`mt-2 w-full truncate text-center text-sm ${
+                  weekdayHot.has(i) ? "font-semibold text-[#ededed]" : "text-[#8f8f98]"
+                }`}
+              >
+                {weekdayShort(i)}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </Card>
   );
 
   const activity = (
-    <div className="flex flex-col gap-4">
-      {weekdayCard}
-    <Card className="!px-3 sm:!px-4">
-      <div
-        className="grid grid-cols-[1.5fr_1fr_1.6fr_1fr] items-end gap-2 border-b border-[#26262b] px-2 pb-3 text-sm leading-tight text-[#8f8f98] sm:px-3"
-        role="row"
-      >
-        <span>{t.colDay}</span>
-        <span>{t.steps[funnel[0]]}</span>
-        <span>{t.colConv}</span>
-        <span>{t.steps[lastStep]}</span>
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      {calendarCard}
+      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-1">
+        {dayCard}
+        {weekdayCard}
       </div>
-      <ul>
-        {rows.map((d) => {
-          const count = d.c.started ?? 0;
-          const best = hasBusiest && busiest.day === d.day;
-          return (
-            <li
-              key={d.day}
-              className={`grid grid-cols-[1.5fr_1fr_1.6fr_1fr] items-center gap-2 rounded-xl px-2 py-3 text-base tabular-nums sm:px-3 ${
-                best ? "bg-[#1a1a1f]" : ""
-              }`}
-            >
-              <span className="text-[#c9c9d0]">{shortDay(d.day)}</span>
-              <span className="text-[#9a9aa3]">{d.c[funnel[0]] ?? 0}</span>
-              <span className="flex items-center gap-2.5">
-                <span className="w-6 font-semibold">{count}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#26262b]">
-                  <span
-                    className={`block h-full rounded-full ${GROW}`}
-                    style={{
-                      width: ready ? `${(count / Math.max(1, ...inRange.map((x) => x.c.started ?? 0))) * 100}%` : "0%",
-                      background: "var(--accent)",
-                    }}
-                  />
-                </span>
-              </span>
-              <span className="font-semibold">{d.c[lastStep] ?? 0}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
     </div>
   );
 
@@ -1305,6 +1387,7 @@ export default function Dashboard({
       </aside>
 
       <div className="min-w-0 flex-1 pb-28 lg:pb-6">
+       <div className="mx-auto w-full max-w-[1240px]">
         {/* PHONE HEADER */}
         <header className="flex items-center gap-3 px-4 pb-1 pt-5 lg:hidden">
           {brandBadge}
@@ -1347,6 +1430,7 @@ export default function Dashboard({
           {view === "activity" && activity}
           {view === "content" && content}
         </main>
+       </div>
       </div>
 
       {/* PHONE TAB BAR */}

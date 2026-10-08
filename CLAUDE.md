@@ -1904,11 +1904,21 @@ And for Wael: start a fresh chat at the start of each week's task.
   `whatsapp_started`, waelwebdesign only), "started with a suggested question"
   (`starter_tap`, both sites) and "leads by type" (`lead_project` vs
   `lead_template`, website only — WhatsApp leads are NOT in it). Activity shows
-  the busiest weekdays and a one-line sentence, from ALL ~62 days, not the
-  chosen period (7 days holds each weekday once, which is noise). Per-site
+  a CALENDAR of the chosen period (one square per day, shaded by conversations,
+  weekday columns lined up; tap a day for its numbers) and the busiest weekdays
+  as seven columns plus a one-line sentence, from ALL ~62 days, not the chosen
+  period (7 days holds each weekday once, which is noise). Wael rejected a
+  day-by-day TABLE (a wall of zeros, columns far apart on a wide screen) and
+  full-width horizontal bars for the weekdays — do not bring either back. Per-site
   switches `whatsapp` and `leadTypes` are in `lib/client-content.ts`.
   OPEN QUESTION for Wael: the plan card counts website `started` only —
   WhatsApp conversations are shown but are not counted toward the 500.
+- LAYOUT RULES (Oct 8, from Wael's screenshot of a 2000px screen): content is
+  capped at `max-w-[1240px]` and centred, so nothing stretches across a big
+  monitor. Journey is ONE grid of three columns: the funnel spans two columns
+  and two rows, the two small cards stack in the third, and the bottom row is
+  three equal cards on the same three columns. Do not nest a second grid inside
+  it — that is what made the cards misalign before.
 - GOTCHA: `var(--accent)` does NOT work in an SVG presentation ATTRIBUTE
   (`stroke="var(--accent)"` draws nothing). Use `style={{ stroke: ... }}`.
 - GOTCHA: SVG tick coordinates must be rounded. Server and browser print the
