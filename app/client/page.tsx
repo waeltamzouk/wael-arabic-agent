@@ -78,21 +78,20 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
     }
   }
 
+  // Full width: the dashboard lays out its own sidebar and content area.
   const shell = (children: React.ReactNode) => (
-    <div
-      data-site={site}
-      dir={dir}
-      className="min-h-screen w-full bg-[#0d0d0f] px-4 py-6 text-[#ededed] sm:py-10"
-    >
-      <main className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-4">{children}</main>
+    <div data-site={site} dir={dir} className="min-h-screen w-full bg-[#0d0d0f] text-[#ededed]">
+      {children}
     </div>
   );
 
   if (!byDay) {
     return shell(
-      <section className="rounded-3xl border border-[#26262b] bg-[#151518] p-5">
-        <p className="text-sm text-[#9a9aa3]">{t.unavailable}</p>
-      </section>
+      <main className="mx-auto max-w-xl p-6">
+        <section className="rounded-3xl border border-[#26262b] bg-[#151518] p-5">
+          <p className="text-base text-[#9a9aa3]">{t.unavailable}</p>
+        </section>
+      </main>
     );
   }
 
@@ -120,6 +119,7 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
   return shell(
     <Dashboard
       site={site}
+      siteName={config.name}
       lang={config.lang}
       limit={config.limit}
       funnel={[...config.funnel]}

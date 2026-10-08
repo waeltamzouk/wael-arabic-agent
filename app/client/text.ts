@@ -41,6 +41,21 @@ type Copy = {
   refreshing: string;
   numbersAt: (time: string) => string;
   unavailable: string;
+  live: string;
+  nav: { overview: string; journey: string; activity: string; content: string };
+  cardTitle: string;
+  cardText: string;
+  collapse: string;
+  expand: string;
+  vsPrior: string;
+  insight: (used: number, change: number | null) => { pre: string; strong: string; post: string };
+  colDay: string;
+  colConv: string;
+  usedLabel: string;
+  remainingLabel: string;
+  tabs: string;
+  empty: string;
+  usedPct: (pct: string) => string;
   steps: Record<string, string>;
   stepHelp: Record<string, string>;
   whatsapp: (site: string) => string;
@@ -84,6 +99,30 @@ export const TEXT: Record<Lang, Copy> = {
     refreshing: "جارٍ التحديث…",
     numbersAt: (time) => `الأرقام محدّثة الساعة ${time}`,
     unavailable: "الأرقام غير متاحة الآن. حاول لاحقاً.",
+    live: "يعمل الآن",
+    nav: { overview: "نظرة عامة", journey: "رحلة الزوار", activity: "النشاط", content: "المحتوى" },
+    cardTitle: "مساعدك",
+    cardText: "جرّبه بنفسك، أو اطلب تغييراً.",
+    collapse: "طي القائمة",
+    expand: "فتح القائمة",
+    vsPrior: "مقارنة بالفترة السابقة",
+    insight: (used, change) => ({
+      pre: "لديك ",
+      strong: `${used} محادثة`,
+      post:
+        change === null
+          ? " هذا الشهر حتى الآن."
+          : change === 0
+            ? " هذا الشهر حتى الآن، بنفس عدد الشهر الماضي في نفس الفترة."
+            : ` هذا الشهر حتى الآن، أي ${Math.abs(change)}% ${change > 0 ? "أكثر" : "أقل"} من نفس الفترة الشهر الماضي.`,
+    }),
+    colDay: "اليوم",
+    colConv: "المحادثات",
+    usedLabel: "مستخدم",
+    remainingLabel: "المتبقي",
+    tabs: "التنقل",
+    empty: "لا توجد محادثات في هذه الفترة بعد.",
+    usedPct: (pct) => `${pct} مستخدم من باقتك`,
     steps: {
       opened: "فتحوا المحادثة",
       started: "كتبوا رسالة",
@@ -143,6 +182,30 @@ export const TEXT: Record<Lang, Copy> = {
     refreshing: "Refreshing…",
     numbersAt: (time) => `Numbers updated at ${time}`,
     unavailable: "Numbers are not available right now. Please try again later.",
+    live: "Live",
+    nav: { overview: "Overview", journey: "Journey", activity: "Activity", content: "Content" },
+    cardTitle: "Your assistant",
+    cardText: "Try it yourself, or ask for a change.",
+    collapse: "Collapse menu",
+    expand: "Open menu",
+    vsPrior: "vs prior period",
+    insight: (used, change) => ({
+      pre: "You've had ",
+      strong: `${used} conversations`,
+      post:
+        change === null
+          ? " this month so far."
+          : change === 0
+            ? " this month so far, the same as last month at this point."
+            : ` this month so far, ${Math.abs(change)}% ${change > 0 ? "more" : "fewer"} than the same period last month.`,
+    }),
+    colDay: "Day",
+    colConv: "Conversations",
+    usedLabel: "Used",
+    remainingLabel: "Remaining",
+    tabs: "Navigation",
+    empty: "No conversations in this period yet.",
+    usedPct: (pct) => `${pct} of your plan used`,
     steps: {
       opened: "Opened the chat",
       started: "Wrote a message",

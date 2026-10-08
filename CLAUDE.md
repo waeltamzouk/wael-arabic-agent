@@ -1881,6 +1881,33 @@ And for Wael: start a fresh chat at the start of each week's task.
   button. All words are in `app/client/text.ts`, both languages. The plan-month
   card (limit, last month, projection) ignores the period buttons on purpose.
   Still view-only: nothing here writes anything.
+- Hovering (or keyboard-focusing) a chart bar shows a small tooltip with that
+  day's numbers; clicking still pins the day below the chart. Type is 14px
+  minimum, 16px body — Wael asked for bigger fonts, so don't go back to 12px.
+- DESIGN (Oct 8, redone from Wael's three reference pictures): a SIDEBAR on
+  wide screens (collapses to an icon rail; a bottom tab bar on a phone; on the
+  right in Arabic) switches four views — Overview, Journey, Activity, Content.
+  The period switch (7 days / 30 days / this month) drives the first three and
+  sits in the top bar (sticky under the header on a phone). Overview: a ring
+  gauge of ticks for the plan month (always THIS month, ignores the period
+  switch), a KPI row with green/red deltas against the prior period, a smooth
+  area-line chart with a crosshair + tooltip on hover (tap pins a day), and a
+  one-sentence insight. Journey: the tappable funnel, a tick bar and the
+  language split. Activity: a day-by-day table. Content: the expandable
+  sections. The sidebar card holds "Try your assistant" and "Request a
+  change". Two-column layouts start at `xl`, not `lg`, because the sidebar eats
+  280px. One focus ring (`FOCUS`) on every control. The page is dark in every
+  OS theme on purpose. Bars/gauges grow in on load (`ready`); reduced motion
+  turns it off.
+- GOTCHA: `var(--accent)` does NOT work in an SVG presentation ATTRIBUTE
+  (`stroke="var(--accent)"` draws nothing). Use `style={{ stroke: ... }}`.
+- GOTCHA: SVG tick coordinates must be rounded. Server and browser print the
+  last digits of a float differently, which is a hydration error.
+- TESTING GOTCHA: in Claude's browser pane, CSS transitions lag until a frame is
+  painted. A chart that "fades in" can look empty in the first screenshot and
+  fine in the next. Read the computed style before deciding it is broken.
+- GOTCHA: the English site uses Fira Mono, which is WIDE. A `truncate` on the
+  title cut "Assistant dashboard" on a phone — let titles wrap.
 - GOTCHA: the chart's axis labels must NOT be `dir="ltr"`. Under Arabic the bars
   run oldest-first from the RIGHT, and forced-LTR labels put the dates backwards.
 - "Conversation" = the `started` counter, summed over the current month in
