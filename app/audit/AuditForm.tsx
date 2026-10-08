@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 // Same field look as app/components/ContactForm.tsx, so the audit page and the chat
 // form read as one site.
@@ -42,9 +42,21 @@ function loadTestKey(): string | null {
 // real value. Nothing here changes while the page is open, so there is nothing to subscribe to.
 const noSubscription = () => () => {};
 
+// The hidden anti-bot field. Its first version was named `company_site`, and a real
+// browser AUTOFILLED it (the name says "company"), so the server took the owner for a
+// bot three times in a row and quietly threw the audit away. The name now says
+// nothing a browser or a password manager recognises, and the server no longer blocks
+// on this field alone: it also needs the form to have been submitted impossibly fast.
+const HONEYPOT = "x_hp_8f3a";
+
 export default function AuditForm() {
   const router = useRouter();
   const testKey = useSyncExternalStore(noSubscription, loadTestKey, () => null);
+  // When the form appeared. A person takes seconds; a bot posts in milliseconds.
+  const shownAt = useRef(0);
+  useEffect(() => {
+    shownAt.current = Date.now();
+  }, []);
   const [busy, setBusy] = useState(false);
   const [fieldError, setFieldError] = useState<{ field?: Field; message: string } | null>(null);
 
@@ -65,7 +77,9 @@ export default function AuditForm() {
           email: data.get("email"),
           consent: data.get("consent") === "on",
           // The honeypot. Empty for a person; a bot that fills every field fills it.
-          company_site: data.get("company_site"),
+          [HONEYPOT]: data.get(HONEYPOT),
+          // Milliseconds the form was open. The server only blocks a filled honeypot when this is tiny.
+          t: shownAt.current ? Date.now() - shownAt.current : null,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { id?: string; notice?: string; field?: Field };
@@ -163,10 +177,22 @@ export default function AuditForm() {
       </div>
 
       {/* The honeypot: out of sight and out of the tab order. Positioned off screen
-          instead of display:none, because bots skip fields that are not rendered. */}
+          instead of display:none, because bots skip fields that are not rendered.
+          The data-* attributes tell the common password managers (LastPass, 1Password,
+          Bitwarden) to leave it alone; the neutral name does the same for the browser. */}
       <div aria-hidden="true" style={{ position: "absolute", insetInlineStart: "-9999px", width: 1, height: 1, overflow: "hidden" }}>
-        <label htmlFor="audit-company-site">Leave this field empty</label>
-        <input id="audit-company-site" name="company_site" type="text" tabIndex={-1} autoComplete="off" />
+        <label htmlFor="audit-hp">Leave this field empty</label>
+        <input
+          id="audit-hp"
+          name={HONEYPOT}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+        />
       </div>
 
       <div>

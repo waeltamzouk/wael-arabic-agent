@@ -2129,6 +2129,17 @@ And for Wael: start a fresh chat at the start of each week's task.
   7. Test on two hostnames: audits are cached per HOSTNAME for a day, so the fixtures on
      `127.0.0.1` and `localhost` are two different "sites".
   8. A function named `useSomething` is treated as a React Hook by the lint rules. Do not.
+  9. THE HIDDEN ANTI-BOT FIELD BLOCKED THE OWNER. The first version was named `company_site` and
+     blocked on its own; a browser AUTOFILLED it, so Wael's first three real attempts on production
+     were taken for bots: the server pretended to accept, created nothing, and sent him to a "report
+     not found" page. Found from the stats page (Audits started 0, "Caught by the hidden field" 3),
+     not from a log. Now: a neutral field name (`x_hp_8f3a`) with `autocomplete="off"` and the
+     LastPass / 1Password / Bitwarden ignore attributes, AND the server blocks only when the field is
+     filled AND the form was open under 2 s (`MIN_HUMAN_MS`, sent by the page as `t`). A filled field
+     with a human pace is logged ("treated as a person") and let through. Rule to keep: never block a
+     person on a trap field alone. Losing a real lead costs far more than letting a bot through, and
+     the limits already cap what a bot can do. If "Caught by the hidden field" ever climbs while real
+     audits stay at zero, look here first.
 - HONEST LIMITATIONS (also printed on the report page): raw HTML only, so nothing JavaScript
   draws later, no mirrored icons, no real load time, no judgement of Arabic wording. A
   CSS-in-JS site (styles injected at runtime) shows no `@media` rules; it is treated as

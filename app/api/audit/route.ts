@@ -28,6 +28,9 @@ export const maxDuration = 60;
 
 const JSON_HEADERS = { "Cache-Control": "no-store" };
 
+/** Fastest a person can plausibly fill three fields, tick a box and press the button. */
+const MIN_HUMAN_MS = 2000;
+
 function reply(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: JSON_HEADERS });
 }
@@ -61,11 +64,24 @@ async function handle(req: NextRequest) {
     return reply({ error: "Invalid JSON body." }, 400);
   }
 
-  // A field no person sees (CSS hides it). A bot that fills every field fills it.
-  // It gets a normal-looking answer and nothing is created, so it learns nothing.
-  if (text(body.company_site, 200)) {
-    record("audit_bot");
-    return reply({ ok: true, id: newJobId() }, 202);
+  // A field no person sees. A bot that fills every field fills it, and it then gets a
+  // normal-looking answer while nothing is created, so it learns nothing.
+  //
+  // BUT A FILLED FIELD IS NOT PROOF OF A BOT. The first version blocked on the field
+  // alone, and a browser autofilled it: the site owner was taken for a bot three times
+  // and his audit silently thrown away (found from the stats page, not from a log).
+  // Losing a real lead costs far more than letting a bot through, and the limits below
+  // already cap what a bot can do. So block only when the form was ALSO submitted
+  // faster than a person could fill it. `company_site` is the first version's name,
+  // still read for pages loaded before the rename.
+  const trapped = ["x_hp_8f3a", "company_site"].some((field) => text(body[field], 200));
+  if (trapped) {
+    const took = typeof body.t === "number" && Number.isFinite(body.t) ? body.t : 0; // no time sent = assume a bot
+    if (took < MIN_HUMAN_MS) {
+      record("audit_bot");
+      return reply({ ok: true, id: newJobId() }, 202);
+    }
+    console.warn(`[audit] hidden field filled but the form took ${Math.round(took)} ms: treated as a person (browser autofill?).`);
   }
 
   const name = text(body.name, 80);
