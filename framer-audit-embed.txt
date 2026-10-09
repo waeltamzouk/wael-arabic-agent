@@ -17,6 +17,14 @@
 import { useEffect, useRef, useState } from "react"
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
 
+// Says hello to the audit, which then answers with its height at once. The audit also repeats its
+// height by itself while this page wakes up, so this only makes it instant.
+function sayHello(frame, src) {
+    try {
+        frame.current?.contentWindow?.postMessage({ type: "wael-audit:hello" }, new URL(src).origin)
+    } catch {}
+}
+
 /**
  * @framerIntrinsicWidth 900
  * @framerIntrinsicHeight 900
@@ -52,6 +60,7 @@ export default function AuditEmbed(props) {
             }
         }
         window.addEventListener("message", onMessage)
+        sayHello(frame, src)
         return () => window.removeEventListener("message", onMessage)
     }, [src, minHeight, showPlaceholder])
 
@@ -88,6 +97,7 @@ export default function AuditEmbed(props) {
         <iframe
             ref={frame}
             src={src}
+            onLoad={() => sayHello(frame, src)}
             title="فحص موقعك"
             style={{
                 display: "block",

@@ -2287,6 +2287,22 @@ And for Wael: start a fresh chat at the start of each week's task.
   live tool shows in Preview and on the published site. If the editor still shows the sad icon with the
   switch on, that origin is still missing: do not guess, ask for the console message and the page's address.
   Never add a domain whose owner is unknown (a search could not say who runs framercanvas.com).
+  SECOND BUG, found from a screenshot of the PUBLISHED page (frame stuck at 800px with the tool scrolling
+  inside it) although every local test had passed: the tool sent its height ONCE, at load, and a Framer
+  page hydrates LATER than the iframe loads, so the message arrived before anyone listened and was lost.
+  After that the size usually does not change (fonts are cached), so nothing was ever sent again. Local tests
+  missed it because the fake page listened instantly, and headless Chrome on the live page recovered by luck
+  (a font loaded late and caused a second message). Reproduced with a fake page whose listener starts 7 s
+  late: frame stuck at 800px, zero messages. Fix: `EmbedBridge` repeats the height at 0, 0.4, 1.2, 2.5, 5, 9,
+  15, 25 and 40 s and answers `wael-audit:hello` at once; the Framer component sends hello when it starts
+  listening and when the frame loads (`sayHello`). Verified: listener 7 s late -> right height at 9 s; listener
+  20 s late with hello -> right height at 20.2 s; the 12 behaviour checks still pass. LESSON: a message sent
+  once to a page that may not be listening yet WILL be lost; make the sender repeat, or make the receiver
+  ask. And test the slow side: delay the listener.
+  To measure the REAL published page: `framercheck.mjs`-style run (headless Chrome, `Page.addScriptToEvaluate
+  OnNewDocument` to record `message` events from the very first moment, then read the iframe's height and
+  its ancestors' `overflow`) at 1920, 1440, 1000 and 390 wide. Framer renders a hidden copy of the embed
+  for each breakpoint; only the visible one matters.
 - HOW TO LOOK AT IT, three traps found on Oct 9:
   1. Next allows ONE `next dev` per folder, and another chat may already own it ("Another next dev
      server is already running"). Then do not post audits to that server (you cannot tell if it is the
