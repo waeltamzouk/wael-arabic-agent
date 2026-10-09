@@ -42,6 +42,9 @@ type Copy = {
   numbersAt: (time: string) => string;
   unavailable: string;
   live: string;
+  chartType: string;
+  chartLine: string;
+  chartBars: string;
   channelsTitle: string;
   channelWebsite: string;
   channelWhatsapp: string;
@@ -117,6 +120,9 @@ export const TEXT: Record<Lang, Copy> = {
     numbersAt: (time) => `الأرقام محدّثة الساعة ${time}`,
     unavailable: "الأرقام غير متاحة الآن. حاول لاحقاً.",
     live: "يعمل الآن",
+    chartType: "شكل الرسم",
+    chartLine: "خط",
+    chartBars: "أعمدة",
     channelsTitle: "من أين تأتي المحادثات",
     channelWebsite: "الموقع",
     channelWhatsapp: "واتساب",
@@ -217,6 +223,9 @@ export const TEXT: Record<Lang, Copy> = {
     numbersAt: (time) => `Numbers updated at ${time}`,
     unavailable: "Numbers are not available right now. Please try again later.",
     live: "Live",
+    chartType: "Chart type",
+    chartLine: "Line",
+    chartBars: "Bars",
     channelsTitle: "Where conversations come from",
     channelWebsite: "Website",
     channelWhatsapp: "WhatsApp",

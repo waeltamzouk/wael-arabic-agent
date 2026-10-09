@@ -51,6 +51,19 @@ const FOCUS =
 const GROW = "transition-[width,height] duration-700 ease-out motion-reduce:transition-none";
 const TINT = "color-mix(in srgb, var(--accent) 15%, transparent)";
 const GREEN = "#4ade80";
+
+// Dot-matrix numerals for the hero numbers (see app/client/fonts.ts). Big sizes
+// only: at 36px and up the dots read as digits, below that they turn to dust.
+const DOT = "font-[family-name:var(--font-dot)] tracking-wide";
+
+/** Diagonal stripes, as in the hatched bars of the references: a tinted fill, fine stripes and a hairline edge. */
+function hatch(color: string, base = "#18181c"): React.CSSProperties {
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 16%, ${base})`,
+    backgroundImage: `repeating-linear-gradient(-30deg, color-mix(in srgb, ${color} 62%, transparent) 0 1.5px, transparent 1.5px 7px)`,
+    border: `1px solid color-mix(in srgb, ${color} 42%, transparent)`,
+  };
+}
 const RED = "#f87171";
 
 const sum = (days: DayCounts[], name: string) =>
@@ -130,6 +143,7 @@ const ICONS: Record<string, string[]> = {
   pulse: ["M3 12h4l3-8 4 16 3-8h4"],
   book: ["M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z", "M4 19V5"],
   trend: ["M3 17l6-6 4 4 8-8", "M15 7h6v6"],
+  bars: ["M5 20V11", "M12 20V4", "M19 20v-6"],
   refresh: ["M21 12a9 9 0 11-3-6.7", "M21 4v5h-5"],
   arrow: ["M5 12h14", "M13 6l6 6-6 6"],
   chat: ["M21 12a8 8 0 01-11.6 7.1L4 20l1.1-4.6A8 8 0 1121 12z"],
@@ -178,15 +192,6 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
     >
       {children}
     </section>
-  );
-}
-
-function Heading({ children, hint }: { children: React.ReactNode; hint?: string }) {
-  return (
-    <div className="mb-5">
-      <h2 className="text-lg font-semibold">{children}</h2>
-      {hint && <p className="mt-1 text-sm text-[#8f8f98]">{hint}</p>}
-    </div>
   );
 }
 
@@ -280,7 +285,7 @@ function RingGauge({
         </span>
         <span className="text-sm leading-snug text-[#9a9aa3]">{label}</span>
         <span
-          className="mt-1 text-5xl font-bold leading-none tabular-nums"
+          className={`mt-1 text-5xl font-bold leading-none tabular-nums ${DOT}`}
           style={{ color: hot ? "var(--accent)" : undefined }}
         >
           <bdi>{used}</bdi>
@@ -332,6 +337,42 @@ function BarRows({
   );
 }
 
+/** The small card that follows a day on either chart. */
+function DayTooltip({
+  day,
+  className,
+  style,
+  t,
+  funnel,
+  niceDay,
+}: {
+  day: DayCounts;
+  className: string;
+  style: React.CSSProperties;
+  t: (typeof TEXT)[Lang];
+  funnel: string[];
+  niceDay: (day: string) => string;
+}) {
+  const lastStep = funnel[funnel.length - 1];
+  return (
+    <div
+      role="tooltip"
+      className={`pointer-events-none absolute z-10 w-52 rounded-2xl border border-[#33333a] bg-[#1c1c20] p-3 shadow-lg shadow-black/50 ${className}`}
+      style={style}
+    >
+      <div className="text-base font-medium">{niceDay(day.day)}</div>
+      <ul className="mt-2 flex flex-col gap-1.5 text-sm text-[#c9c9d0]">
+        {[...new Set([funnel[0], "started", lastStep])].map((name) => (
+          <li key={name} className="flex items-baseline justify-between gap-3">
+            <span>{t.steps[name]}</span>
+            <span className="font-semibold tabular-nums">{day.c[name] ?? 0}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Conversations per day: a smooth area line, a crosshair and a tooltip on hover. */
 function AreaChart({
   data,
@@ -360,7 +401,6 @@ function AreaChart({
   const n = data.length;
   const counts = data.map((d) => d.c.started ?? 0);
   const top = niceMax(Math.max(...counts, 1));
-  const lastStep = funnel[funnel.length - 1];
 
   // Oldest day sits at the START of the line: the left in English, the right in
   // Arabic, which is also where the y-axis numbers go.
@@ -465,21 +505,14 @@ function AreaChart({
                 className="pointer-events-none absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0d0d0f] bg-[var(--accent)] ring-2 ring-[var(--accent)]/40"
                 style={{ left: `${fx(active) * 100}%`, top: `${fy(counts[active]) * 100}%` }}
               />
-              <div
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full z-10 mb-3 w-52 -translate-x-1/2 rounded-2xl border border-[#33333a] bg-[#1c1c20] p-3 shadow-lg shadow-black/50"
+              <DayTooltip
+                day={activeDay}
+                className="bottom-full mb-3 -translate-x-1/2"
                 style={{ left: `clamp(104px, ${fx(active) * 100}%, calc(100% - 104px))` }}
-              >
-                <div className="text-base font-medium">{niceDay(activeDay.day)}</div>
-                <ul className="mt-2 flex flex-col gap-1.5 text-sm text-[#c9c9d0]">
-                  {[...new Set([funnel[0], "started", lastStep])].map((name) => (
-                    <li key={name} className="flex items-baseline justify-between gap-3">
-                      <span>{t.steps[name]}</span>
-                      <span className="font-semibold tabular-nums">{activeDay.c[name] ?? 0}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                t={t}
+                funnel={funnel}
+                niceDay={niceDay}
+              />
             </>
           )}
 
@@ -499,6 +532,152 @@ function AreaChart({
       </div>
 
       {/* Labels run in the page's direction, the same way the line does. */}
+      <div className="mt-3 flex justify-between ps-12 text-sm tabular-nums text-[#8f8f98]">
+        {labelAt.map((i) => (
+          <bdi key={i}>{data[i].day.slice(5)}</bdi>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Conversations per day as striped bars. The day under the pointer (or pinned) turns solid. */
+function HatchedBars({
+  data,
+  rtl,
+  average,
+  selectedDay,
+  onSelect,
+  ready,
+  t,
+  funnel,
+  niceDay,
+}: {
+  data: DayCounts[];
+  rtl: boolean;
+  average: number;
+  selectedDay: string | null;
+  onSelect: (day: string | null) => void;
+  ready: boolean;
+  t: (typeof TEXT)[Lang];
+  funnel: string[];
+  niceDay: (day: string) => string;
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const n = data.length;
+  const counts = data.map((d) => d.c.started ?? 0);
+  const top = niceMax(Math.max(...counts, 1));
+  const selectedIdx = selectedDay ? data.findIndex((d) => d.day === selectedDay) : -1;
+  const active = hoverIdx ?? (selectedIdx >= 0 ? selectedIdx : null);
+  const activeDay = active !== null ? data[active] : null;
+
+  const fy = (count: number) => 1 - count / top;
+  // The middle of a bar's slot across the plot, flipped in Arabic where the
+  // oldest day sits on the right (the same direction as the line chart).
+  const cx = (i: number) => (rtl ? 1 - (i + 0.5) / n : (i + 0.5) / n);
+
+  const ticks = [1, 0.75, 0.5, 0.25, 0];
+  const labelAt = [...new Set([0, 1, 2, 3, 4].map((k) => Math.round((k * (n - 1)) / 4)))];
+
+  return (
+    <div>
+      <div className="flex gap-3">
+        <div className="relative h-60 w-9 shrink-0 text-sm tabular-nums text-[#8f8f98]" aria-hidden="true">
+          {ticks.map((f) => (
+            <span
+              key={f}
+              className="absolute end-0 -translate-y-1/2 leading-none"
+              style={{ top: `${(1 - f) * 100}%` }}
+            >
+              {Math.round(top * f)}
+            </span>
+          ))}
+        </div>
+
+        <div className="relative h-60 min-w-0 flex-1">
+          {ticks.map((f) => (
+            <div
+              key={f}
+              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[#26262b]"
+              style={{ top: `${(1 - f) * 100}%` }}
+              aria-hidden="true"
+            />
+          ))}
+          {average > 0 && (
+            <div
+              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[#8f8f98]/70"
+              style={{ top: `${fy(average) * 100}%` }}
+              aria-hidden="true"
+            />
+          )}
+
+          <div
+            className="absolute inset-0 flex items-end gap-[3px]"
+            role="group"
+            aria-label={t.chart}
+            onPointerLeave={() => setHoverIdx(null)}
+          >
+            {data.map((d, i) => {
+              const count = counts[i];
+              const on = active === i;
+              const height = ready && count ? `${Math.max(3, (count / top) * 100)}%` : "3px";
+              return (
+                <button
+                  key={d.day}
+                  type="button"
+                  aria-pressed={selectedDay === d.day}
+                  aria-label={`${niceDay(d.day)}: ${count}`}
+                  onPointerEnter={() => setHoverIdx(i)}
+                  onFocus={() => setHoverIdx(i)}
+                  onBlur={() => setHoverIdx(null)}
+                  onClick={() => onSelect(selectedDay === d.day ? null : d.day)}
+                  className={`flex h-full min-w-0 flex-1 items-end justify-center rounded-md ${FOCUS}`}
+                >
+                  <span
+                    className={`block w-full max-w-10 rounded-t-xl ${GROW}`}
+                    style={
+                      count === 0
+                        ? { height, background: "#2c2c32" }
+                        : on
+                          ? {
+                              height,
+                              background: "var(--accent)",
+                              border: "1px solid var(--accent)",
+                              boxShadow: "0 0 24px -4px var(--accent)",
+                            }
+                          : { height, ...hatch("var(--accent)") }
+                    }
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          {activeDay && active !== null && (
+            <>
+              {/* The ring on top of the chosen bar, and the bubble above it. */}
+              <div
+                className="pointer-events-none absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0d0d0f] bg-white"
+                style={{ left: `${cx(active) * 100}%`, top: `${fy(counts[active]) * 100}%` }}
+              />
+              <DayTooltip
+                day={activeDay}
+                className=""
+                style={{
+                  left: `clamp(104px, ${cx(active) * 100}%, calc(100% - 104px))`,
+                  top: `${fy(counts[active]) * 100}%`,
+                  transform: "translate(-50%, calc(-100% - 16px))",
+                }}
+                t={t}
+                funnel={funnel}
+                niceDay={niceDay}
+              />
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="mt-3 flex justify-between ps-12 text-sm tabular-nums text-[#8f8f98]">
         {labelAt.map((i) => (
           <bdi key={i}>{data[i].day.slice(5)}</bdi>
@@ -529,6 +708,7 @@ export default function Dashboard({
   const [view, setView] = useState<View>("overview");
   const [range, setRange] = useState<Range>("30");
   const [collapsed, setCollapsed] = useState(false);
+  const [chartType, setChartType] = useState<"line" | "bars">("line");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
@@ -864,7 +1044,7 @@ export default function Dashboard({
               className="min-w-0"
             >
               <dt className="text-sm leading-snug text-[#9a9aa3]">{k.label}</dt>
-              <dd className="mt-2 text-4xl font-semibold tabular-nums leading-none">
+              <dd className={`mt-2 text-4xl font-semibold tabular-nums leading-none ${DOT}`}>
                 <bdi>{k.value}</bdi>
               </dd>
               <dd className="mt-2.5 flex flex-wrap items-center gap-x-2 text-sm">
@@ -877,18 +1057,60 @@ export default function Dashboard({
       </Card>
 
       <Card className="xl:col-span-2 xl:col-start-1 xl:row-start-2">
-        <Heading hint={t.chartHint}>{t.chart}</Heading>
-        <AreaChart
-          data={inRange}
-          rtl={rtl}
-          average={average}
-          selectedDay={selectedDay}
-          onSelect={setSelectedDay}
-          ready={ready}
-          t={t}
-          funnel={funnel}
-          niceDay={niceDay}
-        />
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">{t.chart}</h2>
+            <p className="mt-1 text-sm text-[#8f8f98]">{t.chartHint}</p>
+          </div>
+          <div
+            className="flex shrink-0 gap-1 rounded-xl border border-[#26262b] bg-[#151518] p-1"
+            role="group"
+            aria-label={t.chartType}
+          >
+            {(["line", "bars"] as const).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                aria-pressed={chartType === kind}
+                aria-label={kind === "line" ? t.chartLine : t.chartBars}
+                title={kind === "line" ? t.chartLine : t.chartBars}
+                onClick={() => setChartType(kind)}
+                className={`flex size-9 items-center justify-center rounded-lg transition-colors ${FOCUS} ${
+                  chartType === kind
+                    ? "bg-[var(--accent)] text-white"
+                    : "text-[#9a9aa3] hover:bg-[#1c1c20] hover:text-white"
+                }`}
+              >
+                <Icon name={kind === "line" ? "trend" : "bars"} size={18} />
+              </button>
+            ))}
+          </div>
+        </div>
+        {chartType === "line" ? (
+          <AreaChart
+            data={inRange}
+            rtl={rtl}
+            average={average}
+            selectedDay={selectedDay}
+            onSelect={setSelectedDay}
+            ready={ready}
+            t={t}
+            funnel={funnel}
+            niceDay={niceDay}
+          />
+        ) : (
+          <HatchedBars
+            data={inRange}
+            rtl={rtl}
+            average={average}
+            selectedDay={selectedDay}
+            onSelect={setSelectedDay}
+            ready={ready}
+            t={t}
+            funnel={funnel}
+            niceDay={niceDay}
+          />
+        )}
         <div className="mt-4 flex items-center gap-2 text-sm text-[#8f8f98]">
           <span className="w-5 border-t border-dashed border-[#8f8f98]" aria-hidden="true" />
           {t.avg} <bdi>{average.toFixed(1)}</bdi>
@@ -994,7 +1216,7 @@ export default function Dashboard({
         <Card className="flex flex-col justify-between">
           <div className="text-sm text-[#9a9aa3]">{t.steps[lastStep]}</div>
           <div className="mt-2 flex items-baseline gap-3">
-            <span className="text-5xl font-semibold leading-none tabular-nums">
+            <span className={`text-5xl font-semibold leading-none tabular-nums ${DOT}`}>
               <bdi>{outcome}</bdi>
             </span>
             <span className="text-base text-[#8f8f98]">{t.ofConversations(pct(outcome, started))}</span>
@@ -1046,7 +1268,7 @@ export default function Dashboard({
         <Card className="flex flex-col">
           <div className="text-sm text-[#9a9aa3]">{t.startersTitle}</div>
           <div className="mt-2 flex items-baseline gap-3">
-            <span className="text-5xl font-semibold leading-none tabular-nums">
+            <span className={`text-5xl font-semibold leading-none tabular-nums ${DOT}`}>
               <bdi>{taps}</bdi>
             </span>
             <span className="text-base text-[#8f8f98]">{t.ofConversations(pct(taps, started))}</span>
@@ -1158,7 +1380,7 @@ export default function Dashboard({
         <>
           <div className="text-lg font-semibold">{niceDay(picked.day)}</div>
           <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-5xl font-semibold leading-none tabular-nums">
+            <span className={`text-5xl font-semibold leading-none tabular-nums ${DOT}`}>
               <bdi>{picked.c.started ?? 0}</bdi>
             </span>
             <span className="text-base text-[#8f8f98]">{t.colConv}</span>
@@ -1202,7 +1424,9 @@ export default function Dashboard({
                   className={`block w-full max-w-10 rounded-t-lg ${GROW}`}
                   style={{
                     height: ready ? `${Math.max(3, (count / weekdayMax) * 100)}%` : "3px",
-                    background: weekdayHot.has(i) ? "var(--accent)" : "#3a3a42",
+                    ...(weekdayHot.has(i)
+                      ? { background: "var(--accent)" }
+                      : hatch("#8f8f98")),
                   }}
                 />
               </div>

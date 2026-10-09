@@ -12,6 +12,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Metadata } from "next";
 import Dashboard from "@/app/client/Dashboard";
+import { dotFont } from "@/app/client/fonts";
 import { TEXT } from "@/app/client/text";
 import { CLIENT_CONFIG, WHATSAPP_URL } from "@/lib/client-content";
 import { isSite, siteMetric, type Site } from "@/lib/site";
@@ -92,7 +93,11 @@ export default async function ClientPage({ searchParams }: PageProps<"/client">)
 
   // Full width: the dashboard lays out its own sidebar and content area.
   const shell = (children: React.ReactNode) => (
-    <div data-site={site} dir={dir} className="min-h-screen w-full bg-[#0d0d0f] text-[#ededed]">
+    <div
+      data-site={site}
+      dir={dir}
+      className={`${dotFont.variable} min-h-screen w-full bg-[#0d0d0f] text-[#ededed]`}
+    >
       {children}
     </div>
   );

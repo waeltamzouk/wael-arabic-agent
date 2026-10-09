@@ -2274,3 +2274,21 @@ And for Wael: start a fresh chat at the start of each week's task.
 - Verified Oct 9 at 380px (both sites, form open, light theme emulated) and at
   390 and 1400 for /stats: no sideways scroll, smallest text 14px.
 
+## Striped bars and dot-matrix numbers on the client dashboard (Oct 9)
+- STRIPED (hatched) BARS: the Overview chart has a Line / Bars switch (two icon
+  buttons in the card's corner; Line is the default). Bars are tinted with fine
+  diagonal stripes (`hatch()` in `Dashboard.tsx`); the day under the pointer, or
+  pinned, turns solid orange with a glow, a white ring on top and the tooltip
+  bubble above — the "hatched bars" pattern from the references, in our colour.
+  The bars are real `<button>`s, so keyboard focus and screen readers work (the
+  line chart is pointer-only). The Activity weekday columns are striped grey, with
+  the busy days solid orange.
+- DOT-MATRIX NUMBERS: the HERO numbers use the "Doto" font (weight 800, loaded in
+  `app/client/fonts.ts`, handed down as `--font-dot` by `page.tsx`, applied with
+  the `DOT` class): the ring gauge's number, the four KPI values, the big counts
+  on Journey and the day card on Activity. Secondary numbers (last month, totals,
+  percentages) stay in the normal font on purpose, so the dots stay special.
+  Never below 36px — smaller, the dots turn to dust.
+- Verified Oct 9: 30 bars, tooltip inside the card at every position, no sideways
+  scroll in any view at 390px, both languages, smallest text 14px.
+
