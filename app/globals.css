@@ -103,7 +103,13 @@ body {
   --color-hair-strong: rgb(255 255 255 / 0.2);
   --color-soft: #ededee;
   --color-mute: #a1a1aa;
-  --color-faint: #7c7c86;
+  /* Raised from #7c7c86 on Oct 9: on the graphite report cards it fell under 4.5:1. */
+  --color-faint: #8f8f98;
+  /* The report's graphite cards ("wael-style" skill): three steps, page / card / raised. */
+  --color-card-1: #18181c;
+  --color-card-2: #131316;
+  --color-line: #26262b;
+  --color-lift: #1c1c20;
 }
 
 .audit-root {
@@ -113,15 +119,19 @@ body {
   font-family: "Thmanyah Sans", var(--font-arabic), system-ui, sans-serif;
 }
 
-/* Motion is kept to two moments: the page arriving, and the score ring drawing.
-   Both are off for visitors who ask their system for reduced motion. */
+/* Motion is kept to two moments: the page arriving, and the ticks of the score ring and the
+   part bars lighting up one after another. Both are off for visitors who ask their system
+   for reduced motion. The tick keyframes only name the START colour ("off"); the end colour
+   is whatever the tick's own style says, so one animation serves grey and orange ticks. */
 @keyframes audit-rise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes audit-ring {
-  from { stroke-dashoffset: var(--ring-full); }
-  to { stroke-dashoffset: var(--ring-to); }
+@keyframes audit-tick {
+  from { stroke: #2c2c32; }
+}
+@keyframes audit-fill {
+  from { width: 0; }
 }
 @keyframes audit-sweep {
   0% { transform: translateX(-100%); }
@@ -129,7 +139,8 @@ body {
 }
 @media (prefers-reduced-motion: no-preference) {
   .audit-rise { animation: audit-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-  .audit-ring { animation: audit-ring 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+  .audit-tick { animation: audit-tick 0.35s ease-out var(--d, 0ms) backwards; }
+  .audit-fill { animation: audit-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards; }
   .audit-sweep { animation: audit-sweep 1.6s ease-in-out infinite; }
 }
 

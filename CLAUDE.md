@@ -2093,7 +2093,7 @@ And for Wael: start a fresh chat at the start of each week's task.
   site is. Tokens, the `@font-face` rules and the two animations live in `app/globals.css` under a
   `.audit-root` block (additive; nothing else changes). `app/audit/layout.tsx` wraps all three pages
   (pill header, footer); `app/audit/parts.tsx` holds the shared drawing (`AddressChip`, `ScoreRing`,
-  `Bar`, `points()`). THE SIGNATURE is the address bar: the input is drawn as a browser's address bar,
+  `TickBar`, `CARD`, `points()`). THE SIGNATURE is the address bar: the input is drawn as a browser's address bar,
   and it comes back as the domain chip on the progress screen and as the heading of the report,
   because the address is the thing being measured. The form has two steps (the address first, then
   name, email and consent in one `<form>`; the closed step is `inert`). The landing page shows a
@@ -2199,6 +2199,47 @@ And for Wael: start a fresh chat at the start of each week's task.
   tracking - check)` and `Elfsight widget`; `analyze.ts` does not (a HubSpot script is usually just
   tracking, and the public report would call it a chat tool). Also, signatures are plain substrings of
   the whole HTML, so `tidio.co` also matches a page that merely links to `tidio.com`.
+- REPORT PAGE REDONE (Oct 9, in Wael's house style, the `wael-style` skill in `~/.claude/skills/`):
+  the report (`ReportView.tsx`) and the landing page's sample card (`SampleReport.tsx`) use graphite
+  cards (`CARD`, tokens `card-1/card-2/line/lift` in `globals.css`) in the client dashboard's
+  three-column grid: the score ring + the five parts (with one sentence written from the weakest
+  part) on top, a strip of four real numbers, then the problems on the wide side and the WhatsApp
+  card, the chat note, "not checked" and the method on the narrow side, then the pages table. The
+  accent now means "needs attention" or "press this": a part under 70% (the "جيد" line in `score.ts`)
+  is orange, a fine one is light grey. GREEN, RED AND THE OLD GRADE COLOURS ARE GONE from the report;
+  the grade is the word, the number and a small dot. The CTA is a graphite card with one orange glow
+  and the one orange button, and an outline copy of the same button sits at the top. NEW ARABIC to
+  review in `copy-ar.ts`: `REPORT.insightWeak`, `insightStrong` and `kpi`. The landing page and the
+  form keep the earlier pure-black look; only `--color-faint` was lightened (it is shared) so small
+  grey text passes 4.5:1 on the cards.
+  `ScoreRing` = 64 ticks on a 270 degree arc, mirrored for Arabic. `TickBar` = an SVG PATTERN of
+  thin ticks (`useId` for the pattern id, sanitised for `url(#...)`), not a fixed number of divs:
+  40 divs became fat beads in a wide card. Both light up with CSS only (`.audit-tick`,
+  `.audit-fill`), so server components can use them and reduced motion turns them off. Punctuation
+  stuck to a SHORT code chip (the brackets in `(viewport)`) is kept on its line by `Rich`; a long chip
+  is left alone because a no-break group wider than the line widens the page. On a phone the table
+  hides the `lang` and `dir` columns so the rest fits without a sideways scroll.
+  Measured Oct 9 at 390, 1024, 1280 and 1900 px on a strong site (82), a weak one (32, Tidio) and an
+  empty-JavaScript shell (no score): 0 px overflow, nothing escaping its box, smallest text 14 px,
+  no tap target under 44 px (checked on the report; see the form's two notes below), main column 2/3
+  and side column 1/3 at every width. `next build` clean.
+- STILL OPEN in the form (not touched): the privacy line under the form is 12 px (`text-xs`,
+  `AuditForm.tsx`) and the closed step's button measures 24 px tall. Both are under the 14 px / 44 px
+  rules of the style skill.
+- HOW TO LOOK AT IT, three traps found on Oct 9:
+  1. Next allows ONE `next dev` per folder, and another chat may already own it ("Another next dev
+     server is already running"). Then do not post audits to that server (you cannot tell if it is the
+     dry-run kind) and do not kill it: copy the project to the scratchpad WITHOUT `.env.local`
+     (`rsync` excluding `node_modules .next .git .env*`, then `cp -cR node_modules`) and run it there.
+  2. `next dev` started in the background EXITS BY ITSELF when its input closes (about 15 s later, no
+     message, code 0), taking the in-memory audits with it. Keep its input open:
+     `(tail -f /dev/null | AUDIT_ALLOW_PRIVATE=1 AUDIT_DRY_RUN=1 npx next dev --port 3401 > log 2>&1 &)`.
+  3. Claude's browser pane can refuse a new localhost address ("denied or failed") and cannot be
+     photographed while hidden. `scripts/shoot.mjs` drives the installed Chrome headless with a
+     throwaway profile: `node scripts/shoot.mjs <outdir> "name=<url>@390x844" ...`. It writes a full-page
+     PNG per job and prints overflow, anything escaping its box, smallest text, card edges and short tap
+     targets. `sips -c H W --cropOffset Y X` slices a tall PNG for reading, but an offset of `0` is read as
+     "centre", so use `1` for the top.
 - HONEST LIMITATIONS (also printed on the report page): raw HTML only, so nothing JavaScript
   draws later, no mirrored icons, no real load time, no judgement of Arabic wording. A
   CSS-in-JS site (styles injected at runtime) shows no `@media` rules; it is treated as

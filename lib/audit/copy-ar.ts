@@ -289,6 +289,17 @@ export const REPORT = {
   evidence: "ما وجدناه",
   allFindings: "كل الملاحظات",
   categories: "الدرجة حسب القسم",
+  // One sentence under the score, written from the real numbers (NEW Oct 9, for Wael to read).
+  // Three pieces around the weakest part's name and its two numbers:
+  //   [before] NAME [between] SCORE [of] MAX .
+  insightWeak: ["أكبر نقطة ضعف في موقعك هي ", "، وفيها ", " من "],
+  insightStrong: ["موقعك قوي في كل الأقسام. أقلها درجة ", "، وفيها ", " من "],
+  kpi: {
+    findings: "ملاحظات وجدناها",
+    pages: "صفحات فحصناها",
+    weight: "حجم الصفحة (تقريباً)",
+    requests: "عدد الملفات (تقريباً)",
+  },
   pages: "الصفحات التي فحصناها",
   pageCols: { page: "الصفحة", arabic: "العربية", lang: "lang", dir: "dir", viewport: "الجوال", contact: "تواصل مباشر", size: "الحجم" },
   yes: "نعم",
