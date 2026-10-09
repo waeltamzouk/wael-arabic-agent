@@ -2226,6 +2226,27 @@ And for Wael: start a fresh chat at the start of each week's task.
 - STILL OPEN in the form (not touched): the privacy line under the form is 12 px (`text-xs`,
   `AuditForm.tsx`) and the closed step's button measures 24 px tall. Both are under the 14 px / 44 px
   rules of the style skill.
+- VERIFIED ON PRODUCTION Oct 9 (the W10-T1 box, minus one item): the Resend segment `Site audit leads` and
+  the properties `website` and `audit_score` (type STRING: the code writes `String(score)`) were created
+  through the Resend API with the app's own key; `RESEND_AUDIENCE_ID_AUDIT` and `AUDIT_CTA_WHATSAPP` are in
+  Vercel (Production). A real audit of waelwebdesign.com with a test address put the contact in the segment
+  within 1 second, subscribed, with `source=audit`, `website`, `language=ar`, `audit_score=82`; the report
+  email and the lead notice both arrived in the Gmail INBOX (not spam) from `leads@waelwebdesign.com`; the
+  report page carries the WhatsApp number and is `noindex`. NOT done: the click through `/audit?test=<key>`
+  on production (that run counted as one audit in /stats and its emails had no `[TEST]`); the test switch
+  was verified locally only. The test contact must be deleted by hand in Resend (Audience, Contacts).
+- THE FIRST PRODUCTION TRY ADDED NOBODY, and what found the cause was running the website's own `saveLead`
+  and `saveScore` from the laptop (real key, a fake address, read the contact back): it came out `added`, so
+  Resend was fine and the fault was in Vercel. Two lessons. (1) A changed env var applies only to the NEXT
+  deployment, so Redeploy after saving. (2) A Vercel variable shows only a lock, never its value, so a bad
+  paste cannot be seen: re-enter it, then redeploy. The lead email's `Mailing list:` line says what happened
+  (`added`, `already`, `disabled` = the variable is missing, `failed` = Resend refused it); Vercel Logs
+  search `Buyer not added` gives the same.
+- Production refuses a request with no `Origin` (403 "Origin not allowed: (none)"). To test the live audit
+  route from the terminal send `-H "Origin: https://wael-arabic-agent.vercel.app"`. The Vercel connector in
+  Claude was not allowed into the team (403), so logs and env vars cannot be read from here; ask for a
+  screenshot of Settings, Environment Variables and of Deployments.
+- zsh trap: a loop variable named `path` overwrites PATH, and every command after it is "not found".
 - HOW TO LOOK AT IT, three traps found on Oct 9:
   1. Next allows ONE `next dev` per folder, and another chat may already own it ("Another next dev
      server is already running"). Then do not post audits to that server (you cannot tell if it is the
