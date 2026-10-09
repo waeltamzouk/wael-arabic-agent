@@ -24,18 +24,21 @@ const FRAME_ANCESTORS = [
     : ["http://localhost:*", "http://127.0.0.1:*"]),
 ];
 
+const FRAME_RULE = [
+  {
+    key: "Content-Security-Policy",
+    value: `frame-ancestors ${FRAME_ANCESTORS.join(" ")};`,
+  },
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
-      {
-        source: "/embed",
-        headers: [
-          {
-            key: "Content-Security-Policy",
-            value: `frame-ancestors ${FRAME_ANCESTORS.join(" ")};`,
-          },
-        ],
-      },
+      { source: "/embed", headers: FRAME_RULE },
+      // The audit is shown inside the Framer page at waelwebdesign.com/audit (see
+      // app/audit/EmbedBridge.tsx). `:path*` also matches /audit itself. Top-level visits, such
+      // as the link in the report email, are not affected: this only limits who may FRAME it.
+      { source: "/audit/:path*", headers: FRAME_RULE },
     ];
   },
 };

@@ -2247,6 +2247,36 @@ And for Wael: start a fresh chat at the start of each week's task.
   Claude was not allowed into the team (403), so logs and env vars cannot be read from here; ask for a
   screenshot of Settings, Environment Variables and of Deployments.
 - zsh trap: a loop variable named `path` overwrites PATH, and every command after it is "not found".
+- INSIDE FRAMER (Oct 9, option 1 of three, Wael asked for the address `waelwebdesign.com/audit`): the tool is
+  shown in an iframe on a Framer page at that address. The other two options, kept for later: a reverse proxy
+  in front of the domain (the true single address, but it sits in front of the MAIN site and Framer does not
+  officially support it) and the subdomain `audit.waelwebdesign.com`. Everything still runs on Vercel, so the
+  cost question is the Vercel plan: Hobby is free but its fair-use rules say personal and non-commercial, and a
+  site promoting paid services counts as commercial (Pro, about $20 a month). That already applies to the chat
+  agent for clients, so decide it on its own. Resend free is 100 emails a day, and each audit sends 2.
+  HOW IT WORKS: `app/audit/layout.tsx` runs a tiny inline script before anything is painted; if the page is
+  framed (`window.self !== window.top`) it adds ONE `<style>` to `<head>` that hides `.audit-chrome` (header
+  and footer), drops the body's full-height stretch and sets a black background. A style, not an attribute on
+  `<html>`, so React has nothing to disagree with at hydration; `/audit` stays static and an unframed visit
+  is untouched. `app/audit/EmbedBridge.tsx` posts `{type:"wael-audit:height"}` (settled for 120 ms, because the
+  page briefly holds two screens while it changes) and `{type:"wael-audit:page"}` (only when the PATH changes:
+  comparing with the previous path, not "first run", because the dev server runs every effect twice and
+  the parent scrolled on load). `next.config.ts` gives `/audit/:path*` (it matches `/audit` too) the same
+  `frame-ancestors` list as `/embed`; top-level visits such as the email link are not affected; the API is
+  not framed. `framer-audit-embed.txt` is the Framer code component to paste (`.txt`, because it imports
+  "framer", which this repo does not have, and tsc would fail on a `.tsx`). It checks `event.origin` and
+  `event.source`, grows to the reported height with a minimum of 800, and scrolls itself into view, with an
+  offset for the sticky menu, when the visitor goes from the form to the report.
+  THE ROBOTS LINE STAYS: with this option the Framer page is the one Google should list, and the Vercel page
+  stays `noindex` so the two do not compete. Remove the line only if the tool ever moves to its own address.
+  LIMITS: the report link inside the emails is the vercel.app address, and opens the standalone page; Google
+  reads the Framer text around the tool, not the tool; the `?test=` switch needs the direct address, because
+  Framer fixes the iframe's address.
+  TESTED Oct 9 in headless Chrome against a fake page on ANOTHER origin (localhost:8888 framing :3401), 12
+  checks: header and footer hidden, frame as tall as the content (1513px landing, 2444px report, back to 1513),
+  no sideways overflow, no scroll on load, tool scrolled to the 80px offset after the move, an unframed visit
+  unchanged. Production build clean; the production header has no localhost entries. NOT tested: the real
+  Framer component inside Framer (it only runs on the published site).
 - HOW TO LOOK AT IT, three traps found on Oct 9:
   1. Next allows ONE `next dev` per folder, and another chat may already own it ("Another next dev
      server is already running"). Then do not post audits to that server (you cannot tell if it is the

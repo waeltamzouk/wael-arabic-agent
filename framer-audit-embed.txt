@@ -1,0 +1,86 @@
+// FRAMER CODE COMPONENT: shows the website audit inside a Framer page (waelwebdesign.com/audit)
+// and grows to the height of whatever the audit is showing, so the page has no inner scrollbar.
+//
+// This file is NOT served or compiled by the app (that is why it ends in .txt, and why it
+// imports "framer", which this repo does not have). It is the source of truth to paste into Framer:
+//   1. Framer, left panel, Assets, Code, "+", New Component. Name it AuditEmbed.
+//   2. Select all the code Framer puts there and replace it with everything below this block.
+//   3. Drag AuditEmbed onto the page. Width: Fill (100%). Height: Fit. Leave "URL" as it is.
+//   4. Publish. It only runs on the published site, so check the real address.
+//
+// It only trusts messages that come from the audit's own address and its own iframe. The audit,
+// in turn, only lets waelwebdesign.com and Framer's preview domains frame it (next.config.ts).
+
+import { useEffect, useRef, useState } from "react"
+import { addPropertyControls, ControlType } from "framer"
+
+/**
+ * @framerIntrinsicWidth 900
+ * @framerIntrinsicHeight 900
+ * @framerSupportedLayoutWidth any-prefer-fixed
+ * @framerSupportedLayoutHeight auto
+ */
+export default function AuditEmbed(props) {
+    const { src, minHeight, scrollOffset } = props
+    const frame = useRef<HTMLIFrameElement>(null)
+    const [height, setHeight] = useState(minHeight)
+
+    useEffect(() => {
+        let origin = ""
+        try {
+            origin = new URL(src).origin
+        } catch {
+            return
+        }
+        function onMessage(event: MessageEvent) {
+            if (event.origin !== origin) return
+            if (event.source !== frame.current?.contentWindow) return
+            const data = event.data
+            if (!data || typeof data !== "object") return
+            if (data.type === "wael-audit:height" && typeof data.height === "number") {
+                setHeight(Math.max(minHeight, Math.min(data.height, 20000)))
+            }
+            // The visitor went from the form to the report: bring the top of the audit into view.
+            if (data.type === "wael-audit:page") {
+                frame.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+        }
+        window.addEventListener("message", onMessage)
+        return () => window.removeEventListener("message", onMessage)
+    }, [src, minHeight])
+
+    return (
+        <iframe
+            ref={frame}
+            src={src}
+            title="فحص موقعك"
+            style={{
+                display: "block",
+                width: "100%",
+                height,
+                border: 0,
+                background: "#000",
+                scrollMarginTop: scrollOffset,
+            }}
+        />
+    )
+}
+
+AuditEmbed.defaultProps = {
+    src: "https://wael-arabic-agent.vercel.app/audit",
+    minHeight: 800,
+    scrollOffset: 80,
+}
+
+addPropertyControls(AuditEmbed, {
+    src: { type: ControlType.String, title: "URL" },
+    minHeight: { type: ControlType.Number, title: "Min height", min: 400, max: 2000, step: 50 },
+    scrollOffset: {
+        type: ControlType.Number,
+        title: "Scroll offset",
+        min: 0,
+        max: 200,
+        step: 10,
+        description: "Space kept above the audit when it scrolls into view (your sticky menu).",
+    },
+})
