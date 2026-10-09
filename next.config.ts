@@ -31,14 +31,25 @@ const FRAME_RULE = [
   },
 ];
 
+// The audit is shown inside the Framer page at waelwebdesign.com/audit (see
+// app/audit/EmbedBridge.tsx). On top of the list above it also allows Framer's own editor,
+// framer.com (the design canvas is drawn inside that page), so the tool can be looked at while
+// building the page. Only the audit gets this, not the chat window. `*.` needs a subdomain,
+// so the bare domain is listed too.
+const AUDIT_FRAME_RULE = [
+  {
+    key: "Content-Security-Policy",
+    value: `frame-ancestors ${[...FRAME_ANCESTORS, "https://framer.com", "https://*.framer.com"].join(" ")};`,
+  },
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/embed", headers: FRAME_RULE },
-      // The audit is shown inside the Framer page at waelwebdesign.com/audit (see
-      // app/audit/EmbedBridge.tsx). `:path*` also matches /audit itself. Top-level visits, such
-      // as the link in the report email, are not affected: this only limits who may FRAME it.
-      { source: "/audit/:path*", headers: FRAME_RULE },
+      // `:path*` also matches /audit itself. Top-level visits, such as the link in the report
+      // email, are not affected: this only limits who may FRAME the page.
+      { source: "/audit/:path*", headers: AUDIT_FRAME_RULE },
     ];
   },
 };

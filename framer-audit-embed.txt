@@ -6,13 +6,16 @@
 //   1. Framer, left panel, Assets, Code, "+", New Component. Name it AuditEmbed.
 //   2. Select all the code Framer puts there and replace it with everything below this block.
 //   3. Drag AuditEmbed onto the page. Width: Fill (100%). Height: Fit. Leave "URL" as it is.
-//   4. Publish. It only runs on the published site, so check the real address.
+//   4. Publish. The live tool shows in Preview (the play button) and on the published site.
+//      On the editor canvas it shows a placeholder, because a live frame on the canvas is slow
+//      and Framer's editor is not always allowed to frame it. Turn on "Live in editor" to try.
 //
 // It only trusts messages that come from the audit's own address and its own iframe. The audit,
-// in turn, only lets waelwebdesign.com and Framer's preview domains frame it (next.config.ts).
+// in turn, only lets waelwebdesign.com, Framer's preview domains and framer.com frame it
+// (next.config.ts).
 
 import { useEffect, useRef, useState } from "react"
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 
 /**
  * @framerIntrinsicWidth 900
@@ -21,11 +24,14 @@ import { addPropertyControls, ControlType } from "framer"
  * @framerSupportedLayoutHeight auto
  */
 export default function AuditEmbed(props) {
-    const { src, minHeight, scrollOffset } = props
+    const { src, minHeight, scrollOffset, liveInEditor } = props
     const frame = useRef<HTMLIFrameElement>(null)
     const [height, setHeight] = useState(minHeight)
+    const onCanvas = RenderTarget.current() === RenderTarget.canvas
+    const showPlaceholder = onCanvas && !liveInEditor
 
     useEffect(() => {
+        if (showPlaceholder) return
         let origin = ""
         try {
             origin = new URL(src).origin
@@ -47,7 +53,36 @@ export default function AuditEmbed(props) {
         }
         window.addEventListener("message", onMessage)
         return () => window.removeEventListener("message", onMessage)
-    }, [src, minHeight])
+    }, [src, minHeight, showPlaceholder])
+
+    if (showPlaceholder) {
+        return (
+            <div
+                style={{
+                    width: "100%",
+                    height: minHeight,
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    background: "#000",
+                    color: "#ededed",
+                    border: "1px dashed #4b4b55",
+                    borderRadius: 24,
+                    font: "500 18px system-ui, sans-serif",
+                    textAlign: "center",
+                    padding: 24,
+                }}
+            >
+                <span>فحص موقعك</span>
+                <span style={{ color: "#8f8f98", font: "400 14px system-ui, sans-serif" }}>
+                    The audit shows here in Preview and on the published site.
+                </span>
+            </div>
+        )
+    }
 
     return (
         <iframe
@@ -70,6 +105,7 @@ AuditEmbed.defaultProps = {
     src: "https://wael-arabic-agent.vercel.app/audit",
     minHeight: 800,
     scrollOffset: 80,
+    liveInEditor: false,
 }
 
 addPropertyControls(AuditEmbed, {
@@ -82,5 +118,11 @@ addPropertyControls(AuditEmbed, {
         max: 200,
         step: 10,
         description: "Space kept above the audit when it scrolls into view (your sticky menu).",
+    },
+    liveInEditor: {
+        type: ControlType.Boolean,
+        title: "Live in editor",
+        enabledTitle: "Yes",
+        disabledTitle: "Placeholder",
     },
 })

@@ -2277,6 +2277,16 @@ And for Wael: start a fresh chat at the start of each week's task.
   no sideways overflow, no scroll on load, tool scrolled to the 80px offset after the move, an unframed visit
   unchanged. Production build clean; the production header has no localhost entries. NOT tested: the real
   Framer component inside Framer (it only runs on the published site).
+  FIRST THING WITH FRAMER BROKE (Oct 9): right after the push the Framer EDITOR canvas showed Chrome's
+  sad-page icon instead of the tool: the new `frame-ancestors` list did not include Framer's editor.
+  Framer draws its canvas inside its own page, so the audit's list (not the chat window's) now also has
+  `https://framer.com` and `https://*.framer.com` (`AUDIT_FRAME_RULE` in next.config.ts; `*.` needs a
+  subdomain, so both are listed). The real canvas origin was NOT confirmed (a search found nothing), and
+  `frame-ancestors` checks EVERY ancestor, not just the nearest. So the component also draws a placeholder on
+  the canvas (`RenderTarget.current() === RenderTarget.canvas`) unless "Live in editor" is switched on; the
+  live tool shows in Preview and on the published site. If the editor still shows the sad icon with the
+  switch on, that origin is still missing: do not guess, ask for the console message and the page's address.
+  Never add a domain whose owner is unknown (a search could not say who runs framercanvas.com).
 - HOW TO LOOK AT IT, three traps found on Oct 9:
   1. Next allows ONE `next dev` per folder, and another chat may already own it ("Another next dev
      server is already running"). Then do not post audits to that server (you cannot tell if it is the
