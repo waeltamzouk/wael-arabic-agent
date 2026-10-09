@@ -184,6 +184,67 @@ function pct(part: number, whole: number) {
   return `${Math.round((part / whole) * 100)}%`;
 }
 
+// ---- Look (the "wael-style" skill): graphite, one accent, no white ----------
+// Always dark, whatever the system theme says, like the client dashboard.
+
+const FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+
+function Page({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen w-full bg-[#0d0d0f] text-[#ededed] [color-scheme:dark]">
+      {children}
+    </div>
+  );
+}
+
+function Card({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-3xl border border-[#26262b] bg-gradient-to-b from-[#18181c] to-[#131316] p-5 sm:p-6 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Tile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-[#26262b] bg-[#16161a] p-4">
+      <div className="text-sm leading-snug text-[#9a9aa3]">{label}</div>
+      <div className="mt-2 text-3xl font-semibold leading-none tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function Block({
+  id,
+  title,
+  note,
+  children,
+}: {
+  id: string;
+  title: string;
+  note: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="mt-6 scroll-mt-6">
+      <Card>
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <p className="mt-1.5 max-w-3xl text-base leading-relaxed text-[#8f8f98]">{note}</p>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{children}</div>
+      </Card>
+    </section>
+  );
+}
+
 export default async function StatsPage({
   searchParams,
 }: {
@@ -195,30 +256,32 @@ export default async function StatsPage({
   // No key configured means the page is off, not open to everyone.
   if (!expected || key !== expected) {
     return (
-      <main dir="ltr" className="p-8 text-sm text-neutral-500">
-        Not found.
-      </main>
+      <Page>
+        <main dir="ltr" className="p-8 text-base text-[#8f8f98]">
+          Not found.
+        </main>
+      </Page>
     );
   }
 
   if (!statsEnabled()) {
     return (
-      <main dir="ltr" className="mx-auto max-w-2xl p-8 text-sm">
-        <h1 className="mb-3 text-lg font-semibold">Chat funnel</h1>
-        <p className="text-neutral-600">
-          Counters are not switched on yet. Add{" "}
-          <code className="rounded bg-neutral-100 px-1">
-            UPSTASH_REDIS_REST_URL
-          </code>{" "}
-          and{" "}
-          <code className="rounded bg-neutral-100 px-1">
-            UPSTASH_REDIS_REST_TOKEN
-          </code>{" "}
-          in the Vercel project settings, then redeploy. Until then every event
-          is still written to the Vercel runtime logs as{" "}
-          <code className="rounded bg-neutral-100 px-1">[funnel]</code>.
-        </p>
-      </main>
+      <Page>
+        <main dir="ltr" className="mx-auto max-w-2xl p-8">
+          <Card>
+            <h1 className="mb-3 text-xl font-semibold">Chat funnel</h1>
+            <p className="text-base leading-relaxed text-[#9a9aa3]">
+              Counters are not switched on yet. Add{" "}
+              <code className="rounded bg-[#0d0d0f] px-1.5 py-0.5">UPSTASH_REDIS_REST_URL</code>{" "}
+              and{" "}
+              <code className="rounded bg-[#0d0d0f] px-1.5 py-0.5">UPSTASH_REDIS_REST_TOKEN</code>{" "}
+              in the Vercel project settings, then redeploy. Until then every event
+              is still written to the Vercel runtime logs as{" "}
+              <code className="rounded bg-[#0d0d0f] px-1.5 py-0.5">[funnel]</code>.
+            </p>
+          </Card>
+        </main>
+      </Page>
     );
   }
 
@@ -237,18 +300,22 @@ export default async function StatsPage({
   } catch (error) {
     console.error("Stats read failed:", error);
     return (
-      <main dir="ltr" className="mx-auto w-full min-w-0 max-w-2xl p-6 text-sm sm:p-8">
-        <h1 className="text-lg font-semibold">Chat funnel</h1>
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-          {upstashHint(error)}
-        </p>
-        <p className="mt-3 text-neutral-600">
-          Nothing is lost while this is broken — every event is still written to
-          the Vercel runtime logs as{" "}
-          <code className="rounded bg-neutral-100 px-1">[funnel]</code>. Fix the
-          variable in the Vercel project settings, then redeploy.
-        </p>
-      </main>
+      <Page>
+        <main dir="ltr" className="mx-auto w-full min-w-0 max-w-2xl p-6 sm:p-8">
+          <Card>
+            <h1 className="text-xl font-semibold">Chat funnel</h1>
+            <p className="mt-4 rounded-2xl border border-[#4a3b12] bg-[#2b2310] p-4 text-base leading-relaxed text-[#fbbf24]">
+              {upstashHint(error)}
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-[#9a9aa3]">
+              Nothing is lost while this is broken — every event is still written
+              to the Vercel runtime logs as{" "}
+              <code className="rounded bg-[#0d0d0f] px-1.5 py-0.5">[funnel]</code>. Fix
+              the variable in the Vercel project settings, then redeploy.
+            </p>
+          </Card>
+        </main>
+      </Page>
     );
   }
 
@@ -260,161 +327,233 @@ export default async function StatsPage({
   ) => totals[view.key(metric)] ?? 0;
 
   return (
-    // `min-w-0 w-full` is load-bearing, and it is the width twin of the scroll
-    // bug in CLAUDE.md. `body` is a flex column, so `main` is a flex item, and
-    // a flex item defaults to `min-width: auto` — it refuses to shrink below
-    // its content. The by-day table is `whitespace-nowrap`, so its min-content
-    // width pushed `main` to 573px inside a 436px phone viewport and the whole
-    // PAGE scrolled sideways. Under `dir="rtl"` from the root layout that is
-    // especially bad: the page opens scrolled to the right and the visitor
-    // sees the content cut off. `min-w-0` lets `main` shrink so the table
-    // scrolls inside its own wrapper instead.
-    <main dir="ltr" className="mx-auto w-full min-w-0 max-w-4xl p-6 text-sm sm:p-8">
-      <h1 className="text-lg font-semibold">Chat funnel</h1>
-      <p className="mt-1 text-neutral-500">
-        All time, plus the last {DAYS} days. Days are Riyadh time. Counts only —
-        no names, numbers or message text are stored here.
-      </p>
-
-      {SITE_VIEWS.map((view) => {
-        const { id, title, subtitle, funnel, totals, leads } = view;
-        const label = (metric: string) => view.labels?.[metric] ?? LABELS[metric];
-        const opened = count(overall, view, view.base);
-        const leadCount = leads
-          ? count(overall, view, "lead_project") + count(overall, view, "lead_template")
-          : 0;
-
-        return (
-          <section key={id} className="mt-10 border-t border-neutral-200 pt-6">
-            <h2 className="text-base font-semibold">{title}</h2>
-            <p className="mt-0.5 text-neutral-500">{subtitle}</p>
-
-            <h3 className="mb-2 mt-4 font-medium">Where people drop off</h3>
-            <div className="overflow-hidden rounded-lg border border-neutral-200">
-              <table className="w-full border-collapse">
-                <tbody>
-                  {funnel.map((metric) => (
-                    <tr key={metric} className="border-b border-neutral-100 last:border-0">
-                      <td className="p-3 text-neutral-600">{label(metric)}</td>
-                      <td className="p-3 text-right font-medium tabular-nums">
-                        {count(overall, view, metric)}
-                      </td>
-                      <td className="w-20 p-3 text-right tabular-nums text-neutral-400">
-                        {pct(count(overall, view, metric), opened)}
-                      </td>
-                    </tr>
-                  ))}
-                  {leads && (
-                    <tr className="bg-neutral-50">
-                      <td className="p-3 font-medium">Leads emailed</td>
-                      <td className="p-3 text-right font-medium tabular-nums">{leadCount}</td>
-                      <td className="p-3 text-right tabular-nums text-neutral-400">
-                        {pct(leadCount, opened)}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-xs text-neutral-500">
-              {view.base === "opened"
-                ? "Percentages are of everyone who opened the bubble on this site."
-                : "Percentages are of everyone who sent a first message."}
+    <Page>
+      {/* `min-w-0 w-full` is load-bearing, and it is the width twin of the scroll
+          bug in CLAUDE.md. `body` is a flex column, so `main` is a flex item, and
+          a flex item defaults to `min-width: auto` — it refuses to shrink below
+          its content. The by-day table is `whitespace-nowrap`, so its min-content
+          width pushed `main` to 573px inside a 436px phone viewport and the whole
+          PAGE scrolled sideways. `min-w-0` lets `main` shrink so the table scrolls
+          inside its own wrapper instead. */}
+      <main dir="ltr" className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+        <header className="flex items-start gap-4">
+          <span
+            className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] shadow-[0_0_24px_-6px_var(--accent)]"
+            aria-hidden="true"
+          >
+            <span className="size-3.5 rounded-full bg-white" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold leading-tight">Chat funnel</h1>
+            <p className="mt-1.5 max-w-3xl text-base leading-relaxed text-[#8f8f98]">
+              All time, plus the last {DAYS} days. Days are Riyadh time. Counts only —
+              no names, numbers or message text are stored here.
             </p>
+          </div>
+        </header>
 
-            <h3 className="mb-2 mt-6 font-medium">Totals</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {totals.map((metric) => (
-                <div key={metric} className="rounded-lg border border-neutral-200 p-3">
-                  <div className="text-xs text-neutral-500">{label(metric)}</div>
-                  <div className="mt-1 text-xl font-semibold tabular-nums">
-                    {count(overall, view, metric)}
+        <nav aria-label="Sections" className="mt-6 flex flex-wrap gap-2">
+          {[
+            ...SITE_VIEWS.map((v) => ({ id: v.id, title: v.title })),
+            { id: "buyers", title: "Template buyers" },
+            { id: "audits", title: "Website audits" },
+          ].map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className={`rounded-full border border-[#26262b] bg-[#151518] px-4 py-2 text-sm text-[#c9c9d0] transition-colors hover:border-[var(--accent)] hover:text-white ${FOCUS}`}
+            >
+              {item.title}
+            </a>
+          ))}
+        </nav>
+
+        {SITE_VIEWS.map((view) => {
+          const { id, title, subtitle, funnel, totals, leads } = view;
+          const label = (metric: string) => view.labels?.[metric] ?? LABELS[metric];
+          const base = count(overall, view, view.base);
+          const leadCount = leads
+            ? count(overall, view, "lead_project") + count(overall, view, "lead_template")
+            : 0;
+          const firstMessages = count(overall, view, "started");
+          const biggest = Math.max(1, ...funnel.map((m) => count(overall, view, m)));
+
+          // The darkest and the brightest cell of each by-day column, so a quiet
+          // column is not shaded by a busy one.
+          const columnMax = (metric: string) =>
+            Math.max(1, ...days.map((day) => count(byDay[day] ?? {}, view, metric)));
+          const heat = (value: number, max: number) =>
+            value === 0
+              ? undefined
+              : `color-mix(in srgb, var(--accent) ${Math.round(18 + (value / max) * 62)}%, #18181c)`;
+
+          return (
+            <section key={id} id={id} className="mt-6 scroll-mt-6">
+              <Card>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-semibold">{title}</h2>
+                    <p className="mt-1 max-w-2xl text-base leading-relaxed text-[#8f8f98]">
+                      {subtitle}
+                    </p>
+                  </div>
+                  <div className="flex gap-6">
+                    <div>
+                      <div className="text-sm text-[#9a9aa3]">First messages</div>
+                      <div className="mt-1 text-4xl font-semibold leading-none tabular-nums">
+                        {firstMessages}
+                      </div>
+                    </div>
+                    {leads && (
+                      <div>
+                        <div className="text-sm text-[#9a9aa3]">Leads emailed</div>
+                        <div
+                          className="mt-1 text-4xl font-semibold leading-none tabular-nums"
+                          style={{ color: leadCount > 0 ? "var(--accent)" : undefined }}
+                        >
+                          {leadCount}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <h3 className="mb-2 mt-6 font-medium">By day</h3>
-            <div className="overflow-x-auto rounded-lg border border-neutral-200">
-              <table className="w-full border-collapse whitespace-nowrap">
-                <thead>
-                  <tr className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
-                    <th className="p-2 text-left font-medium">Day</th>
-                    {funnel.map((m) => (
-                      <th key={m} className="p-2 text-right font-medium">
-                        {label(m).replace("Got ", "").replace(" the bubble", "")}
-                      </th>
-                    ))}
-                    {leads && <th className="p-2 text-right font-medium">Leads</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {days.map((day) => {
-                    const row = byDay[day] ?? {};
-                    return (
-                      <tr key={day} className="border-b border-neutral-100 last:border-0">
-                        <td className="p-2 text-neutral-600">{day}</td>
+                <div className="mt-6 grid gap-6 lg:grid-cols-3">
+                  {/* WHERE PEOPLE DROP OFF */}
+                  <div className="lg:col-span-2">
+                    <h3 className="mb-3 text-base font-medium text-[#c9c9d0]">
+                      Where people drop off
+                    </h3>
+                    <ul className="flex flex-col gap-1">
+                      {funnel.map((metric, i) => {
+                        const value = count(overall, view, metric);
+                        return (
+                          <li key={metric} className="rounded-2xl px-3 py-3 hover:bg-[#1c1c20]">
+                            <div className="flex items-center gap-3">
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#26262b] text-sm font-semibold text-[#c9c9d0]">
+                                {i + 1}
+                              </span>
+                              <span className="min-w-0 flex-1 text-base">{label(metric)}</span>
+                              <span className="text-sm tabular-nums text-[#8f8f98]">
+                                {pct(value, base)}
+                              </span>
+                              <span className="min-w-10 text-end text-xl font-semibold tabular-nums">
+                                {value}
+                              </span>
+                            </div>
+                            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#26262b]">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${(value / biggest) * 100}%`,
+                                  background: "var(--accent)",
+                                  opacity: 1 - (i / Math.max(1, funnel.length)) * 0.5,
+                                }}
+                              />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="mt-3 text-sm text-[#8f8f98]">
+                      {view.base === "opened"
+                        ? "Percentages are of everyone who opened the bubble on this site."
+                        : "Percentages are of everyone who sent a first message."}
+                    </p>
+                  </div>
+
+                  {/* TOTALS */}
+                  <div>
+                    <h3 className="mb-3 text-base font-medium text-[#c9c9d0]">Totals</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {totals.map((metric) => (
+                        <Tile key={metric} label={label(metric)} value={count(overall, view, metric)} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* BY DAY — shaded by volume, so a quiet fortnight reads as quiet
+                    instead of a wall of zeros. */}
+                <h3 className="mb-3 mt-8 text-base font-medium text-[#c9c9d0]">
+                  By day <span className="font-normal text-[#8f8f98]">· last {DAYS} days</span>
+                </h3>
+                <div className="overflow-x-auto rounded-2xl border border-[#26262b]">
+                  <table className="w-full border-collapse whitespace-nowrap text-base">
+                    <thead>
+                      <tr className="border-b border-[#26262b] bg-[#16161a] text-sm text-[#9a9aa3]">
+                        <th className="p-3 text-start font-medium">Day</th>
                         {funnel.map((m) => (
-                          <td key={m} className="p-2 text-right tabular-nums">
-                            {count(row, view, m)}
-                          </td>
+                          <th key={m} className="p-3 text-end font-medium">
+                            {label(m).replace("Got ", "").replace(" the bubble", "")}
+                          </th>
                         ))}
-                        {leads && (
-                          <td className="p-2 text-right font-medium tabular-nums">
-                            {count(row, view, "lead_project") + count(row, view, "lead_template")}
-                          </td>
-                        )}
+                        {leads && <th className="p-3 text-end font-medium">Leads</th>}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        );
-      })}
+                    </thead>
+                    <tbody>
+                      {days.map((day) => {
+                        const row = byDay[day] ?? {};
+                        const dayLeads =
+                          count(row, view, "lead_project") + count(row, view, "lead_template");
+                        return (
+                          <tr key={day} className="border-b border-[#1f1f24] last:border-0">
+                            <td className="p-3 text-[#c9c9d0]">{day}</td>
+                            {funnel.map((m) => {
+                              const value = count(row, view, m);
+                              return (
+                                <td
+                                  key={m}
+                                  className={`p-3 text-end tabular-nums ${
+                                    value === 0 ? "text-[#4b4b55]" : "font-medium text-white"
+                                  }`}
+                                  style={{ background: heat(value, columnMax(m)) }}
+                                >
+                                  {value === 0 ? "·" : value}
+                                </td>
+                              );
+                            })}
+                            {leads && (
+                              <td
+                                className={`p-3 text-end tabular-nums ${
+                                  dayLeads === 0 ? "text-[#4b4b55]" : "font-semibold text-white"
+                                }`}
+                                style={{ background: heat(dayLeads, Math.max(1, dayLeads)) }}
+                              >
+                                {dayLeads === 0 ? "·" : dayLeads}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </section>
+          );
+        })}
 
-      <section className="mt-10 border-t border-neutral-200 pt-6">
-        <h2 className="text-base font-semibold">Template buyers</h2>
-        <p className="mb-2 mt-0.5 text-xs text-neutral-500">
-          From the Polar webhook, not the chat, so it belongs to neither site
-          above. Did not consent counts both buyers who left the checkout box
-          unticked and orders whose checkout never asked — so if it climbs while
-          Added stays at zero, the consent field is not attached to the product
-          they bought.
-        </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Block
+          id="buyers"
+          title="Template buyers"
+          note="From the Polar webhook, not the chat, so it belongs to neither site above. Did not consent counts both buyers who left the checkout box unticked and orders whose checkout never asked — so if it climbs while Added stays at zero, the consent field is not attached to the product they bought."
+        >
           {BUYERS.map((metric) => (
-            <div key={metric} className="rounded-lg border border-neutral-200 p-3">
-              <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">
-                {overall[metric] ?? 0}
-              </div>
-            </div>
+            <Tile key={metric} label={LABELS[metric]} value={overall[metric] ?? 0} />
           ))}
-        </div>
-      </section>
+        </Block>
 
-      <section className="mt-10 border-t border-neutral-200 pt-6">
-        <h2 className="text-base font-semibold">Website audits (/audit)</h2>
-        <p className="mb-2 mt-0.5 text-xs text-neutral-500">
-          Started plus Reused is the number of leads that passed every check and
-          reached your Resend list. Finished is audits that produced a report;
-          Could not be audited is a site that was down, blocked us, or was not a
-          web page. If Refused: storage unavailable is above zero, Upstash is
-          missing or wrong in Vercel and nobody can submit.
-        </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Block
+          id="audits"
+          title="Website audits (/audit)"
+          note="Started plus Reused is the number of leads that passed every check and reached your Resend list. Finished is audits that produced a report; Could not be audited is a site that was down, blocked us, or was not a web page. If Refused: storage unavailable is above zero, Upstash is missing or wrong in Vercel and nobody can submit."
+        >
           {AUDITS.map((metric) => (
-            <div key={metric} className="rounded-lg border border-neutral-200 p-3">
-              <div className="text-xs text-neutral-500">{LABELS[metric]}</div>
-              <div className="mt-1 text-xl font-semibold tabular-nums">
-                {overall[metric] ?? 0}
-              </div>
-            </div>
+            <Tile key={metric} label={LABELS[metric]} value={overall[metric] ?? 0} />
           ))}
-        </div>
-      </section>
-    </main>
+        </Block>
+      </main>
+    </Page>
   );
 }

@@ -41,6 +41,7 @@ const UI = {
     inputLabel: "اكتب رسالتك",
     send: "إرسال",
     testBanner: "وضع التجربة: هذه المحادثة لا تُحسب في الأرقام.",
+    online: "متصل الآن",
     startersLabel: "أسئلة مقترحة",
     starters: [
       "كم تكلفة موقع لشركتي؟",
@@ -63,6 +64,7 @@ const UI = {
     inputLabel: "Type your message",
     send: "Send",
     testBanner: "Test mode: this chat is not counted in the numbers.",
+    online: "Online",
     startersLabel: "Suggested questions",
     starters: [
       "Which template fits my business?",
@@ -436,21 +438,34 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
         // wrapper only `max-height`. `h-full` silently became "as tall as my
         // content", which stopped the message list scrolling and pushed the
         // composer off screen. `min-h-0` is the half that lets it shrink.
-        "flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950",
+        // Always graphite, whatever the visitor's system theme says (the
+        // "wael-style" skill): the site it sits on is dark, and a white panel
+        // inside it looked like a different product.
+        "flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0d0d0f] text-[#ededed] [color-scheme:dark]",
         // Rounding is omitted in the panel: it belongs to the iframe itself,
         // on the Framer side, and doubling it shows a corner seam.
         isPanel
           ? ""
-          : "rounded-2xl border border-zinc-200 dark:border-zinc-800",
+          : "rounded-3xl border border-[#26262b]",
       ].join(" ")}
     >
-      <header className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+      <header className="flex shrink-0 items-center gap-3 border-b border-[#26262b] bg-gradient-to-b from-[#18181c] to-[#131316] px-4 py-3.5">
+        <span
+          className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent shadow-[0_0_24px_-6px_var(--accent)]"
+          aria-hidden="true"
+        >
+          <span className="size-3 rounded-full bg-white" />
+        </span>
+
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="text-base font-semibold leading-tight text-white">
             {t.title}
           </h2>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            {t.subtitle}
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-[#8f8f98]">
+            <span className="size-2 shrink-0 rounded-full bg-[#4ade80]" aria-hidden="true" />
+            <span className="shrink-0 text-[#4ade80]">{t.online}</span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{t.subtitle}</span>
           </p>
         </div>
 
@@ -463,7 +478,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
               window.parent?.postMessage({ type: CLOSE_MESSAGE }, "*")
             }
             aria-label={t.close}
-            className="-me-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            className="-me-1 flex size-10 shrink-0 items-center justify-center rounded-xl text-[#8f8f98] transition-colors hover:bg-[#1c1c20] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <svg
               viewBox="0 0 20 20"
@@ -483,7 +498,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
       {testKey && (
         <p
           role="status"
-          className="shrink-0 bg-amber-100 px-5 py-1.5 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          className="shrink-0 bg-[#2b2310] px-5 py-1.5 text-sm text-[#fbbf24]"
         >
           {t.testBanner}
         </p>
@@ -497,7 +512,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
         // iframe instead of scrolling it — and pushes the composer off
         // screen. Invisible until a conversation is long enough to overflow,
         // which is why a restored conversation exposed it first.
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-5 py-5"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-4 py-5"
       >
         <Bubble role="assistant">{t.welcome}</Bubble>
 
@@ -507,7 +522,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
             aria-label={t.startersLabel}
             // `items-start` is logical, so under RTL the buttons line up on
             // the right, under the welcome bubble, with no extra rule.
-            className="flex max-w-[85%] flex-col items-start gap-2 self-start"
+            className="flex max-w-[92%] flex-col items-start gap-2 self-start"
           >
             {t.starters.map((q) => (
               <button
@@ -518,7 +533,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
                 // `text-start`, never `text-left`: the physical one does not
                 // flip under RTL. `break-words` so a long line wraps inside
                 // the 380px panel instead of pushing it sideways.
-                className="max-w-full break-words rounded-2xl border border-zinc-200 px-4 py-2 text-start text-sm leading-6 text-zinc-900 transition-colors hover:border-accent hover:text-accent-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 dark:border-zinc-800 dark:text-zinc-100"
+                className="max-w-full break-words rounded-2xl border border-[#2c2c32] bg-[#16161a] px-4 py-2.5 text-start text-[15px] leading-6 text-[#ededed] transition-colors hover:border-accent hover:bg-[#1c1c20] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
               >
                 {q}
               </button>
@@ -547,13 +562,25 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
         )}
 
         {loading && (
-          <div className="self-start rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-            {t.typing}
+          // Three pulsing dots, with the word kept for screen readers.
+          <div
+            role="status"
+            className="flex items-center gap-1.5 self-start rounded-2xl rounded-ss-md border border-[#26262b] bg-[#1c1c20] px-4 py-3.5"
+          >
+            <span className="sr-only">{t.typing}</span>
+            {[0, 150, 300].map((delay) => (
+              <span
+                key={delay}
+                aria-hidden="true"
+                className="size-2 animate-pulse rounded-full bg-[#8f8f98] motion-reduce:animate-none"
+                style={{ animationDelay: `${delay}ms` }}
+              />
+            ))}
           </div>
         )}
 
         {error && (
-          <div className="self-start rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <div className="self-start rounded-2xl border border-[#4a1d20] bg-[#2a1517] px-4 py-3 text-[15px] leading-6 text-[#fca5a5]">
             {error}
             {canRetry && (
               <button
@@ -570,7 +597,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
 
       <form
         onSubmit={handleSubmit}
-        className="flex shrink-0 items-end gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800"
+        className="flex shrink-0 items-end gap-2 border-t border-[#26262b] bg-[#111114] p-3"
       >
         <textarea
           value={input}
@@ -580,12 +607,12 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
           dir="auto"
           placeholder={t.placeholder}
           aria-label={t.inputLabel}
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-accent dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500"
+          className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-[#26262b] bg-[#1a1a1f] px-4 py-3 text-[15px] leading-5 text-white outline-none placeholder:text-[#8f8f98] focus:ring-2 focus:ring-accent"
         />
         <button
           type="submit"
           disabled={loading || input.trim().length === 0}
-          className="h-11 shrink-0 rounded-xl bg-accent px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="h-11 shrink-0 rounded-2xl bg-accent px-5 text-sm font-semibold text-white shadow-[0_0_22px_-6px_var(--accent)] transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40 disabled:shadow-none"
         >
           {t.send}
         </button>
@@ -599,7 +626,7 @@ export default function ChatWidget({ variant = "card", site = DEFAULT_SITE }: Pr
 // end of an Arabic sentence does not swallow the full stop.
 const URL_PATTERN = /(https?:\/\/[^\s<>()]+[^\s<>().,;:!?؟،])/g;
 
-function linkify(text: string) {
+function linkify(text: string, linkClass: string) {
   return text.split(URL_PATTERN).map((part, i) => {
     if (i % 2 === 0) return part;
 
@@ -621,7 +648,7 @@ function linkify(text: string) {
         // Polar checkout links are ~70 unbroken characters. Without break-all
         // they overflow the bubble and force the whole panel to scroll
         // sideways. inline-block keeps the wrapped lines together.
-        className="inline-block break-all text-accent-text underline underline-offset-2 [unicode-bidi:isolate]"
+        className={`inline-block break-all underline underline-offset-2 [unicode-bidi:isolate] ${linkClass}`}
       >
         {part}
       </a>
@@ -642,13 +669,18 @@ function Bubble({
     <div
       dir="auto"
       className={[
-        "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-6",
+        "max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-[15px] leading-7",
+        // The visitor's lines are the one place the accent fills a surface, as in
+        // the reference. Darkened 20% so white 15px text keeps 5:1 contrast
+        // (the raw brand orange is 3.4:1, fine for a button, not for reading).
         isUser
-          ? "self-end bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-          : "self-start bg-zinc-100 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100",
+          ? "self-end rounded-se-md bg-[color-mix(in_srgb,var(--accent)_80%,#000)] text-white"
+          : "self-start rounded-ss-md border border-[#26262b] bg-[#1c1c20] text-[#ededed]",
       ].join(" ")}
     >
-      {typeof children === "string" ? linkify(children) : children}
+      {typeof children === "string"
+        ? linkify(children, isUser ? "text-white" : "text-accent")
+        : children}
     </div>
   );
 }

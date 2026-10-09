@@ -2186,3 +2186,27 @@ And for Wael: start a fresh chat at the start of each week's task.
 - A pre-existing lint error remains in `app/components/ChatWidget.tsx` (line 282,
   `react-hooks/set-state-in-effect`). It is the documented "restore in a useEffect" pattern
   and was not touched.
+
+## Chat window and /stats restyled (Oct 9) — the "wael-style" skill
+- The chat window (`ChatWidget.tsx`, `ContactForm.tsx`, and the homepage card in
+  `app/page.tsx`) and `/stats` are now graphite with the orange accent, like the
+  client dashboard. The look rules live in the personal skill
+  `~/.claude/skills/wael-style/` — load it before changing any UI.
+- ALWAYS DARK, whatever the visitor's system theme: no `dark:` classes are left
+  in these files. Checked with the light theme emulated. A white panel inside the
+  dark waelwebdesign.com looked like a different product.
+- The visitor's own bubbles are the one place the accent fills a surface. They use
+  the accent DARKENED 20% (`color-mix(in srgb, var(--accent) 80%, #000)`) so white
+  15px text keeps about 5:1 contrast; the raw brand orange is 3.4:1, fine for a
+  button, not for reading. Links inside the assistant's bubbles use the real
+  accent; inside the orange bubble they are white.
+- New in the header: an orange badge and a green "متصل الآن / Online" dot. The
+  typing indicator is three pulsing dots (the word is kept for screen readers).
+- Text is 15px in bubbles, 14px minimum everywhere (the form labels were 12px).
+- /stats: one card per site with the funnel as bars, totals as tiles, and the
+  by-day table SHADED by volume (each column against its own maximum, zeros as a
+  faint dot) so a quiet fortnight does not read as a wall of zeros. Section chips
+  at the top jump to each block. Same data and same guard as before.
+- Verified Oct 9 at 380px (both sites, form open, light theme emulated) and at
+  390 and 1400 for /stats: no sideways scroll, smallest text 14px.
+

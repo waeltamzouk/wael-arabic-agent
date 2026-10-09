@@ -71,9 +71,9 @@ const MIN_PHONE_DIGITS = 6;
 // filled the row, and the phone input collapsed to nothing. Width is set per
 // field instead.
 const FIELD_CLASS =
-  "rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-accent dark:bg-zinc-950 dark:text-zinc-50 dark:ring-zinc-800";
+  "rounded-xl bg-[#0d0d0f] px-3 py-2.5 text-[15px] text-white outline-none ring-1 ring-[#2c2c32] placeholder:text-[#8f8f98] focus:ring-2 focus:ring-accent";
 
-const LABEL_CLASS = "mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400";
+const LABEL_CLASS = "mb-1.5 block text-sm font-medium text-[#c9c9d0]";
 
 export default function ContactForm({
   language,
@@ -146,15 +146,11 @@ export default function ContactForm({
       dir={language === "en" ? "ltr" : "rtl"}
       // Full width, unlike a bubble: at 380px the panel has no room to spare
       // and the phone row needs every pixel of it.
-      className="w-full self-stretch rounded-2xl bg-zinc-100 p-4 dark:bg-zinc-900"
+      className="w-full self-stretch rounded-2xl border border-[#26262b] bg-[#16161a] p-4 [color-scheme:dark]"
     >
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          {t.title}
-        </h3>
-        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          {t.subtitle}
-        </p>
+        <h3 className="text-base font-semibold text-white">{t.title}</h3>
+        <p className="mt-0.5 text-sm text-[#8f8f98]">{t.subtitle}</p>
       </div>
 
       <div className="space-y-3">
@@ -211,7 +207,7 @@ export default function ContactForm({
         <div>
           <label htmlFor="lead-email" className={LABEL_CLASS}>
             {t.email}{" "}
-            <span className="font-normal text-zinc-400 dark:text-zinc-500">
+            <span className="font-normal text-[#8f8f98]">
               ({t.optional})
             </span>
           </label>
@@ -230,14 +226,14 @@ export default function ContactForm({
       </div>
 
       {error && (
-        <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="mt-3 text-sm text-[#f87171]">{error}</p>
       )}
 
       <div className="mt-4 flex items-center gap-3">
         <button
           type="submit"
           disabled={sending}
-          className="h-10 rounded-xl bg-accent px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="h-11 rounded-2xl bg-accent px-5 text-sm font-semibold text-white shadow-[0_0_22px_-6px_var(--accent)] transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40 disabled:shadow-none"
         >
           {sending ? t.sending : t.send}
         </button>
@@ -248,7 +244,7 @@ export default function ContactForm({
           type="button"
           onClick={onDismiss}
           disabled={sending}
-          className="text-xs text-zinc-500 underline underline-offset-2 transition-colors hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="text-sm text-[#9a9aa3] underline underline-offset-2 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40"
         >
           {t.dismiss}
         </button>
