@@ -2176,6 +2176,29 @@ And for Wael: start a fresh chat at the start of each week's task.
      measure its columns instead.
   12. A long code snippet inside Arabic text must break at SPACES (`break-words`), not anywhere
      (`break-all`), or `width` becomes `widt` / `h`.
+- CHAT NOTE, three outcomes (fixed Oct 8): the report said "no automatic chat on your site" for
+  waelwebdesign.com, which HAS Wael's own bubble, because `CHAT_SIGS` only knew third-party tools BY
+  NAME. Now `score.ts` picks, in this order: a known tool by name (`obs_chat_thirdparty`), else signs
+  of a chat window the site built itself (`obs_chat_custom`, from `PageFacts.customChat`), else
+  `obs_chat_none`, whose words are "no KNOWN chat tool found" because raw HTML can never prove
+  there is none. The id `obs_chat_none` was kept so saved reports still render. None of the three
+  costs points. How a custom bubble is recognised (`chatSignal()` in `analyze.ts`, twin in `probe.py`,
+  tested together): the word `chat` standing alone (`wael-chat-launcher`, `ChatWidget`, `livechat`,
+  `chatbot`) or Arabic `محادثة` / `دردشة` / `شات` in the `id`, `aria-label` or `title` of a button,
+  iframe, div, span, section or aside; `class` and `src` and the Arabic `مساعد` only on a button or
+  iframe; or a `<script src>` whose address has the word. NEVER running text, NEVER an `<a>` link, and
+  NEVER anything WhatsApp (it is a link to a person). Max 4 pieces of evidence.
+  Wael's own bubble is found as `button id="wael-chat-launcher"` + `iframe id="wael-chat-panel"`: its
+  iframe has NO `src` in the HTML (the snippet sets it on first open), so the iframe's address
+  cannot be the signal. Checked Oct 8: 27 small cases (12 must fire, 15 must not: YouTube embeds,
+  `wechat`, WhatsApp buttons, `مساعدة`, `chatter`, a plain "Chat with us" link) and 29 real pages
+  (16 real Tidio sites still read as Tidio, the others as none or custom), 0 differences between the
+  TS and Python versions. Real finds: `elm.sa` has its own chatbot and is now seen; `stc.com.sa` and
+  `jarir.com` read as "none found", which is exactly why the wording had to stop claiming absence.
+- KNOWN DRIFT, left alone: the two `CHAT_SIGS` lists differ. `probe.py` also lists `HubSpot (chat or
+  tracking - check)` and `Elfsight widget`; `analyze.ts` does not (a HubSpot script is usually just
+  tracking, and the public report would call it a chat tool). Also, signatures are plain substrings of
+  the whole HTML, so `tidio.co` also matches a page that merely links to `tidio.com`.
 - HONEST LIMITATIONS (also printed on the report page): raw HTML only, so nothing JavaScript
   draws later, no mirrored icons, no real load time, no judgement of Arabic wording. A
   CSS-in-JS site (styles injected at runtime) shows no `@media` rules; it is treated as

@@ -37,6 +37,36 @@ const CHAT_SIGS: Record<string, string[]> = {
   Landbot: ["landbot.io"], Botpress: ["botpress"], Voiceflow: ["voiceflow"], Wittify: ["wittify"],
   Kommunicate: ["kommunicate"], Chaport: ["chaport"], "Joinchat (WhatsApp button)": ["joinchat"],
 };
+
+// CHAT_SIGS only knows tools BY NAME, so a bubble a site built itself (or a tool not on
+// the list) would read as "no chat". These are the marks such a bubble leaves in its
+// attributes. They are looked for on a few element kinds only, never in running text,
+// and never on a WhatsApp button (that is a link to a person, not a chat window).
+// `chat` must stand alone in the value (`wael-chat-launcher`, `ChatWidget`), so
+// `wechat` and `chatter` do not count. Arabic has no \b in JS, hence the lookarounds.
+const CHAT_TOKEN_RE =
+  /(?<![a-z])(?:live[-_ ]?chat|chat[-_ ]?bot|chat(?:[-_ ]?(?:widget|box|bubble|window|launcher|button|btn|icon|panel|popup|toggle|frame|container|wrapper))?|ai[-_ ]?assistant|virtual[-_ ]?assistant)(?![a-z])/;
+const CHAT_AR_RE = /(?<![؀-ۿ])(?:ال)?(?:محادثة|دردشة|شات)(?![؀-ۿ])/;
+// "مساعد" is too common on its own ("مساعد المدير"), so only a button or iframe may carry it.
+const ASSISTANT_AR_RE = /(?<![؀-ۿ])(?:ال)?مساعد(?![؀-ۿ])/;
+const CHAT_TAGS = new Set(["button", "iframe", "div", "span", "section", "aside"]);
+const CHAT_STRICT_TAGS = new Set(["button", "iframe"]); // may also be judged by class, src and "مساعد"
+
+/** Evidence that this element is part of a chat window, or null. */
+function chatSignal(tag: string, a: Record<string, string>): string | null {
+  const fields: [string, string | undefined][] = [["id", a.id], ["aria-label", a["aria-label"]], ["title", a.title]];
+  if (CHAT_STRICT_TAGS.has(tag)) fields.push(["class", a.class], ["src", a.src]);
+  for (const [key, value] of fields) {
+    if (!value) continue;
+    const v = value.toLowerCase();
+    if (FLOAT_WA_RE.test(v)) continue;
+    if (CHAT_TOKEN_RE.test(v) || CHAT_AR_RE.test(v) || (CHAT_STRICT_TAGS.has(tag) && ASSISTANT_AR_RE.test(v))) {
+      return `${tag} ${key}="${value.trim().slice(0, 40)}"`;
+    }
+  }
+  return null;
+}
+
 const TECH_SIGS: Record<string, string[]> = {
   WordPress: ["wp-content/", "wp-includes/"], Wix: ["wixstatic.com", "parastorage.com"],
   Squarespace: ["squarespace.com", "sqspcdn"], Shopify: ["cdn.shopify.com"],
@@ -102,6 +132,7 @@ export function analyzeHtml(
   let inlineLeft = 0;
   let inlineFixedWidth = 0;
   let floatingWa = false;
+  const customChat: string[] = [];
   const styleText: string[] = [];
 
   let inBody = false;
@@ -134,8 +165,11 @@ export function analyzeHtml(
           links.push(a);
           break;
         case "script":
-          if (a.src) scripts.push(a.src);
-          else inlineScripts += 1;
+          if (a.src) {
+            scripts.push(a.src);
+            const src = a.src.toLowerCase();
+            if (customChat.length < 4 && CHAT_TOKEN_RE.test(src) && !FLOAT_WA_RE.test(src)) customChat.push(`script src="${a.src.slice(-40)}"`);
+          } else inlineScripts += 1;
           break;
         case "img":
           imgs.push(a);
@@ -165,6 +199,11 @@ export function analyzeHtml(
           break;
       }
       if (SKIP.has(name)) skip += 1;
+
+      if (customChat.length < 4 && CHAT_TAGS.has(name)) {
+        const hit = chatSignal(name, a);
+        if (hit) customChat.push(hit);
+      }
 
       const style = a.style;
       if (style) {
@@ -324,6 +363,7 @@ export function analyzeHtml(
     floatingWhatsapp: floatingWa,
     earliestContactPct,
     chatWidgets,
+    customChat,
     platforms,
     jquery,
     bootstrap,

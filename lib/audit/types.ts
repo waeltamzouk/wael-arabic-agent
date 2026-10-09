@@ -47,6 +47,8 @@ export type PageFacts = {
   /** How far down the page's HTML the earliest contact link sits, 0..100. A proxy for "above the fold". */
   earliestContactPct: number | null;
   chatWidgets: string[];
+  /** Marks of a chat window that is NOT a known tool (the site's own bubble), as short evidence strings. Max 4. */
+  customChat: string[];
   platforms: string[];
   jquery: string[];
   bootstrap: string[];

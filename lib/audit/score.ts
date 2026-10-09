@@ -259,7 +259,12 @@ export function scoreAudit(crawl: Ok, now: Date = new Date()): AuditReport {
   if (pages.some((p) => p.chatWidgets.length > 0)) {
     const name = pages.flatMap((p) => p.chatWidgets)[0];
     observations.push({ id: "obs_chat_thirdparty", category: "contact", lost: 0, params: { name } });
+  } else if (pages.some((p) => p.customChat.length > 0)) {
+    // A bubble the site built itself, or a tool not on our list. A known tool wins above.
+    observations.push({ id: "obs_chat_custom", category: "contact", lost: 0, params: {} });
   } else {
+    // Raw HTML cannot prove there is NO chat (a script can add one later), so this id
+    // means "no known tool found", and its words say so. The id stays: saved reports use it.
     observations.push({ id: "obs_chat_none", category: "contact", lost: 0, params: {} });
   }
 
